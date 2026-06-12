@@ -1,0 +1,13 @@
+[project]
+name = "wenjuanxing-parser"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+license = "AGPL-3.0-only"
+requires-python = ">=3.14"
+dependencies = [
+    "pandas>=3.0.3",
+    "py-yaml12>=0.1.0",
+    "pydantic>=2.13.4",
+    "python-calamine>=0.6.2",
+]

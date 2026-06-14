@@ -1,9 +1,13 @@
 from pathlib import Path
 
 import pandas as pd
+from pydantic import TypeAdapter
 
-from wenjuanxing_parser.loader import load_questions_from_yaml
-from wenjuanxing_parser.models import QuestionnaireData
+from .loader import load_questions_from_yaml
+from .models import (
+    AnyQuestion,
+    QuestionnaireData,
+)
 
 if __name__ == '__main__':
     excel_path = Path(__file__).parent.parent.parent / 'data.xlsx'
@@ -45,3 +49,14 @@ if __name__ == '__main__':
         import traceback
 
         traceback.print_exc()
+import json
+
+print(
+    json.dumps(
+        TypeAdapter(
+            list[AnyQuestion]).json_schema(),
+            indent=2,
+            ensure_ascii=False,
+
+    )
+)

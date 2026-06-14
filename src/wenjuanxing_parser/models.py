@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from ipaddress import IPv4Address, IPv6Address, ip_address
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 
 import pandas as pd
-from pydantic import TypeAdapter, model_validator
+from pydantic import Field, TypeAdapter, model_validator
 from pydantic.dataclasses import dataclass
 
 # 1. 基础类型别名
@@ -56,17 +56,20 @@ class Question:
 @dataclass(frozen=True, kw_only=True)
 class RadioQuestion(Question):
     options: list[Option]  # 单选题也有多个选项供人选择，所以是 list[Option]
+    type: Literal['radio'] = 'radio'
 
 
 @dataclass(frozen=True, kw_only=True)
 class CheckboxQuestion(Question):
     options: list[Option]  # 多选题
+    type: Literal['checkbox'] = 'checkbox'
 
 
 @dataclass(frozen=True, kw_only=True)
 class FillBlankQuestion(Question):
     blank_count: int = 1  # 填空题：记录这道题有几个空格需要填
     regex: list[str]
+    type: Literal['fill_blank'] = 'fill_blank'
 
     @model_validator(mode='after')
     def validate_regex_count_matches_blanks(self) -> Self:
@@ -80,7 +83,13 @@ class FillBlankQuestion(Question):
 
 @dataclass(frozen=True, kw_only=True)
 class TextAreaQuestion(Question):
-    pass  # 问答题：不需要额外定义结构
+    type: Literal['text_area'] = 'text_area'
+
+
+type AnyQuestion = Annotated[
+    RadioQuestion | CheckboxQuestion | FillBlankQuestion | TextAreaQuestion,
+    Field(discriminator='type'),
+]
 
 
 @dataclass(frozen=True)
@@ -163,24 +172,27 @@ class QuestionnaireData:
 
         # 1. 建立【列名映射字典】：{"原始中文字符串": 题号(int) / "meta_xxx"}
         rename_map: dict[str, str | int] = {
-            "序号": "meta_num",
-            "提交答卷时间": "meta_date",
-            "所用时间": "meta_time",
-            "来源": "meta_source",
-            "来源详情": "meta_detail",
-            "来自IP": "meta_ip"
+            '序号': 'meta_num',
+            '提交答卷时间': 'meta_date',
+            '所用时间': 'meta_time',
+            '来源': 'meta_source',
+            '来源详情': 'meta_detail',
+            '来自IP': 'meta_ip',
         }
 
         for col_name in df_cleaned_rows.columns:
             if col_name in rename_map:
                 continue
             for q_num in questions_map.keys():
-                if col_name.startswith(f"{q_num}") or f"Q{q_num}" in col_name:
+                print(col_name)
+                if col_name.startswith(f'{q_num}') or f'Q{q_num}' in col_name:
                     rename_map[col_name] = q_num
                     break
 
         # 2. 矩阵改名、过滤并导出默认的列驱动嵌套字典
-        df_cleaned_cols = df_cleaned_rows.rename(columns=rename_map)[list(rename_map.values())]
+        df_cleaned_cols = df_cleaned_rows.rename(columns=rename_map)[
+            list(rename_map.values())
+        ]
         matrix_dict = df_cleaned_cols.to_dict(orient='dict')
 
         # 3. 横向聚合拼装行响应列表
@@ -192,12 +204,14 @@ class QuestionnaireData:
                 for q_num in questions_map.keys()
                 if q_num in matrix_dict
             }
-            response = QuestionnaireResponse.from_clean_dict(meta_data, row_answers_dict, questions_map)
+            response = QuestionnaireResponse.from_clean_dict(
+                meta_data, row_answers_dict, questions_map
+            )
             parsed_responses.append(response)
 
         # 4. 利用 TypeAdapter 一次性灌入 Pydantic 展开严格校验
         adapter = TypeAdapter(cls)
-        return adapter.validate_python({"data": parsed_responses})
+        return adapter.validate_python({'data': parsed_responses})
 
     @staticmethod
     def _build_basic_data_from_matrix(matrix_dict: dict, idx: int) -> BasicData:
@@ -225,5 +239,3 @@ class QuestionnaireData:
             source_detail=str(matrix_dict['meta_detail'][idx]),
             ip=IP(address=ip_address(ip_str), location=location),
         )
-
-

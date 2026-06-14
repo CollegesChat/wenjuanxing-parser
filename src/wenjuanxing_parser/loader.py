@@ -4,7 +4,7 @@ from typing import Any, cast
 from pydantic import TypeAdapter, ValidationError
 from yaml12 import parse_yaml
 
-from wenjuanxing_parser.models import (
+from .models import (
     CheckboxQuestion,
     FillBlankQuestion,
     Option,

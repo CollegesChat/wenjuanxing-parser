@@ -1,62 +1,149 @@
+import argparse
+import sys
 from pathlib import Path
 
 import pandas as pd
 from pydantic import TypeAdapter
+from yaml12 import parse_yaml
 
-from .loader import load_questions_from_yaml
-from .models import (
-    AnyQuestion,
-    QuestionnaireData,
-)
+from .models import AnyQuestion, ChosenOption, QuestionnaireData, ResponseStatus
+
+
+def load_questions(config_path: Path) -> dict[int, AnyQuestion]:
+    """读取 YAML 并利用 Pydantic 自动反序列化为结构化的 Question 实体"""
+    with open(config_path, 'r', encoding='utf-8') as f:
+        raw = parse_yaml(f.read())
+
+    # 兼容 YAML 最外层直接是 Dict {1: {...}} 或带有 key 的情况
+    raw_map = raw.get('questions', raw) if isinstance(raw, dict) else raw
+    if isinstance(raw_map, list):
+        raw_map = {q['num']: q for q in raw_map if 'num' in q}
+
+    return TypeAdapter(dict[int, AnyQuestion]).validate_python(raw_map)
+
+
+def load_dataframe(data_path: Path) -> pd.DataFrame:
+    """自动识别扩充名并读取 Excel 或 CSV"""
+    suffix = data_path.suffix.lower()
+    if suffix == '.csv':
+        return pd.read_csv(data_path)
+    elif suffix in ('.xlsx', '.xls'):
+        return pd.read_excel(data_path)
+    else:
+        raise ValueError(f'不支援的文件格式: {suffix}，仅支持 .csv 或 .xlsx')
+
+
+def format_value(val) -> str:
+    """将各种高度结构化的 AnswerValue 漂亮地扁平化为输出文字"""
+    if val is None or isinstance(val, ResponseStatus):
+        return ''
+
+    if isinstance(val, ChosenOption):
+        if val.additional_text:
+            # 智慧标点：如果附加文字开头自带标点则直接拼接，否则补个逗号
+            sep = '' if val.additional_text[0] in '，。、；：,.;:' else '，'
+            return f'{val.text}{sep}{val.additional_text}'
+        return val.text
+
+    if isinstance(val, list):
+        # 适用于填空题多空格或多选题组，过滤空值后用逗号串接
+        parts = [format_value(v) for v in val if v]
+        return '，'.join(p for p in parts if p)
+
+    return str(val)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='问卷星数据自动解析与精简文字导出工具')
+    parser.add_argument(
+        '-d',
+        '--data',
+        type=str,
+        default='data.csv',
+        help='问卷数据文件路径 (支援 .csv/.xlsx，预设: data.csv)',
+    )
+    parser.add_argument(
+        '-c',
+        '--config',
+        type=str,
+        default='v2.yaml',
+        help='题库定义 YAML 路径 (预设: v2.yaml)',
+    )
+    parser.add_argument(
+        '-o',
+        '--output',
+        type=str,
+        default=None,
+        help='导出文本路径 (预设直接打印到终端)',
+    )
+
+    args = parser.parse_args()
+    data_path = Path(args.data)
+    config_path = Path(args.config)
+
+    # ✨ 智慧容错：如果预设的 data.csv 不存在，但旁边躺著一个 data.xlsx，自动切换
+    if (
+        not data_path.exists()
+        and args.data == 'data.csv'
+        and Path('data.xlsx').exists()
+    ):
+        data_path = Path('data.xlsx')
+
+    if not data_path.exists():
+        print(f"❌ 错误：找不到数据文件 '{data_path}'", file=sys.stderr)
+        sys.exit(1)
+    if not config_path.exists():
+        print(f"❌ 错误：找不到配置文件 '{config_path}'", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        # 1. 载入题库与原始 DataFrame
+        questions_map = load_questions(config_path)
+        df = load_dataframe(data_path)
+
+        # 2. 灌入先前写好的矩阵解析管线（包含弱校验逻辑）
+        survey_data = QuestionnaireData.from_dataframe(df, questions_map)
+
+        # 3. 横向聚合：按「题号」重新洗牌数据，组装目标文字格式
+        output_lines = []
+        for q_num, question in sorted(questions_map.items()):
+            q_answers = []
+            for response in survey_data.data:
+                user_id = response.metadata.num
+                ans_obj = response.answers.get(q_num)
+
+                if ans_obj:
+                    text_str = format_value(ans_obj.value).strip()
+                    if text_str:
+                        q_answers.append(f'A{user_id}: {text_str}')
+
+            # 当这道题确实有人回答时，才输出题干与答案清单
+            if q_answers:
+                output_lines.append(f'Q: {question.title}')
+                output_lines.extend(q_answers)
+
+        # 4. 输出结果
+        final_text = '\n'.join(output_lines)
+        if args.output:
+            Path(args.output).write_text(final_text, encoding='utf-8')
+            print(f'🎉 成功将结构化文本导出至: {args.output}')
+        else:
+            print(final_text)
+
+    except Exception as e:
+        print(f'💥 运行时发生错误: {e}', file=sys.stderr)
+        sys.exit(1)
+
 
 if __name__ == '__main__':
-    excel_path = Path(__file__).parent.parent.parent / 'data.xlsx'
+    main()
+# 生成schema
+# import json
 
-    yaml_path = Path(__file__).parent.parent.parent / 'test.yaml'
-    df = pd.read_excel(excel_path, sheet_name=0, engine='calamine')
-    try:
-        result = QuestionnaireData.from_dataframe(
-            df,
-            questions_map={},  # <-- 传空字典即可只解析basic data
-        )
-
-        print('✅ 恭喜！BasicData 全量矩阵解析测试成功！')
-        print(f'📊 一次性成功加载了 {len(result.data)} 条用户基本信息。')
-
-        if result.data:
-            first_user = result.data[0].metadata
-            print('\n🔍 --- 抽查第 1 条元数据解析结果 ---')
-            print(f'序号: {first_user.num} (类型: {type(first_user.num)})')
-            print(
-                f'提交时间: {first_user.answer_date} (类型: {type(first_user.answer_date)})'
-            )
-            print(
-                f'所用时间: {first_user.time_used} (类型: {type(first_user.time_used)})'
-            )
-            print(
-                f'IP地址: {first_user.ip.address} (类型: {type(first_user.ip.address)})'
-            )
-            print(f'IP归属地: {first_user.ip.location}')
-            print(df.dtypes)
-            try:
-                my_questions_map = load_questions_from_yaml(yaml_path)
-                print(f'🎯 题库加载成功！共识别到 {len(my_questions_map)} 道题目配置。')
-            except Exception as e:
-                print(f'❌ 题库 YAML 校验失败，程序阻断！详情: {e}')
-    except Exception:
-        print('❌ BasicData 解析失败！')
-        # 打印出具体的报错堆栈，方便定位是时间格式不对，还是IP括号切分崩了
-        import traceback
-
-        traceback.print_exc()
-import json
-
-print(
-    json.dumps(
-        TypeAdapter(
-            list[AnyQuestion]).json_schema(),
-            indent=2,
-            ensure_ascii=False,
-
-    )
-)
+# print(
+#     json.dumps(
+#         TypeAdapter(list[AnyQuestion]).json_schema(),
+#         indent=2,
+#         ensure_ascii=False,
+#     )
+# )

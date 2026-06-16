@@ -52,7 +52,7 @@ def load_questions_from_yaml(yaml_path: str | Path) -> dict[int, Question]:
                 if isinstance(opt, dict)
             ]
 
-            adapter = TypeAdapter(target_class)
-            questions_map[q_num] = adapter.validate_python(config)
+        adapter = TypeAdapter(target_class)
+        questions_map[q_num] = adapter.validate_python(config)
 
     return questions_map

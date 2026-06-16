@@ -179,6 +179,7 @@ dmypy.json
 .pytype/
 *.xls*
 *.yaml
+*.csv
 # Cython debug symbols
 cython_debug/
 

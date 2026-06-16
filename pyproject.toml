@@ -1,13 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "wenjuanxing-parser"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.1.0b1"  # 标注为 Beta 1 版本
+description = "为CollegesChat的答卷准备的非通用解析器。仅支持填空/多选+可选额外文本/单选+可选额外文本/多项填空。"
 readme = "README.md"
-license = "AGPL-3.0-only"
+authors = [
+    { name = "Kaesinol" }
+]
+license = { text = "AGPL-3.0-only" }
 requires-python = ">=3.12"
+keywords = ["wenjuanxing", "parser", "pydantic", "collegeschat", "questionnaire"]
+classifiers = [
+    "Development Status :: 4 - Beta",  # 明确标记为 Beta 阶段
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Affero General Public License v3 (AGPLv3)",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Utilities",
+]
+
 dependencies = [
     "pandas>=3.0.3",
     "py-yaml12>=0.1.0",
     "pydantic>=2.13.4",
     "python-calamine>=0.6.2",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.0",
+]
+
+# ---- 构件与打包配置 (Hatch) ----
+[tool.hatch.build.targets.wheel]
+packages = ["src/wenjuanxing_parser"]
+
+[tool.hatch.build]
+exclude = [
+    "/tests",
+    "/.github",
+    "/.gitignore",
+    "*.csv",
+    "*.xlsx",
+    "*.yaml",
+]
+
+# ---- 测试配置 (Pytest) ----
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

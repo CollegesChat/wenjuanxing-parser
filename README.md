@@ -34,10 +34,18 @@ uv sync
 解析器已经集成为了可直接执行的 Python 模块。你可以在项目根目录下直接使用命令列：
 
 ```bash
-pip install wenjuanxing-parser
+pip install wenjuanxing-parser[all] # 安装推荐的YAML（py-yaml12，用于问卷schema） + xlsx（python-calamine） 格式支持库
+pip install wenjuanxing-parser # 仅安装数据处理模块，数据用你自己的库读
 ```
+## 使用方法
+
+1. 先编写问卷schema：[例子](https://github.com/CollegesChat/questionnaire/blob/main/v2.yaml)
+2. 下载问卷的答卷（按文本）
+3. 用你的代码调用此库，示例：[\_\_main\_\_.py](src/wenjuanxing_parser/__main__.py)
 
 ### 命令行参数说明
+
+以下只能在安装了`wenjuanxing-parser[all]`后使用。
 
 | 参数       | 短参数 | 默认值     | 说明                                               |
 | ---------- | ------ | ---------- | -------------------------------------------------- |
@@ -74,4 +82,3 @@ uv run pytest
 ## 📄 开源协议
 
 本项目采用 **AGPL-3.0-only** 协议开源。
-

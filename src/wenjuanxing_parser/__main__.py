@@ -10,11 +10,10 @@ from .models import AnyQuestion, ChosenOption, QuestionnaireData, ResponseStatus
 
 
 def load_questions(config_path: Path) -> dict[int, AnyQuestion]:
-    """读取 YAML 并利用 Pydantic 自动反序列化为结构化的 Question 实体"""
+    """读取 YAML 并利用 Pydantic 自动反序列化"""
     with open(config_path, 'r', encoding='utf-8') as f:
         raw = parse_yaml(f.read())
 
-    # 兼容 YAML 最外层直接是 Dict {1: {...}} 或带有 key 的情况
     raw_map = raw.get('questions', raw) if isinstance(raw, dict) else raw
     if isinstance(raw_map, list):
         raw_map = {q['num']: q for q in raw_map if 'num' in q}
@@ -23,14 +22,15 @@ def load_questions(config_path: Path) -> dict[int, AnyQuestion]:
 
 
 def load_dataframe(data_path: Path) -> pd.DataFrame:
-    """自动识别扩充名并读取 Excel 或 CSV"""
+    """自动识别扩展名并读取数据"""
     suffix = data_path.suffix.lower()
     if suffix == '.csv':
         return pd.read_csv(data_path)
-    elif suffix in ('.xlsx', '.xls'):
-        return pd.read_excel(data_path)
+    elif suffix == '.xlsx':
+        # ⚡ 强绑定：命令行只认 calamine 引擎，快准狠
+        return pd.read_excel(data_path, engine='calamine')
     else:
-        raise ValueError(f'不支援的文件格式: {suffix}，仅支持 .csv 或 .xlsx')
+        raise ValueError(f'不支持的文件格式: {suffix}，仅支持 .csv 或 .xlsx')
 
 
 def format_value(val) -> str:

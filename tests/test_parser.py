@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pandas as pd
+from yaml12 import parse_yaml
 
 from wenjuanxing_parser.loader import load_questions_from_yaml
 from wenjuanxing_parser.models import QuestionnaireData
@@ -31,7 +32,7 @@ def test_parser_flow(tmp_path: Path):
     csv_file.write_text(csv_content, encoding='utf-8')
 
     # 3. 执行你的程式码逻辑
-    questions_map = load_questions_from_yaml(yaml_file)
+    questions_map = load_questions_from_yaml(parse_yaml(yaml_file.read_text()))  # type: ignore
     df = pd.read_csv(csv_file)
     survey_data = QuestionnaireData.from_dataframe(df, questions_map)
 

@@ -1,8 +1,6 @@
-from pathlib import Path
 from typing import Any, cast
 
 from pydantic import TypeAdapter
-from yaml12 import parse_yaml
 
 from .models import (
     CheckboxQuestion,
@@ -14,12 +12,7 @@ from .models import (
 )
 
 
-def load_questions_from_yaml(yaml_path: str | Path) -> dict[int, Question]:
-    with open(yaml_path, 'r', encoding='utf-8') as f:
-        yaml_text = f.read()
-
-    raw_data: Any = parse_yaml(yaml_text)
-
+def load_questions_from_yaml(raw_data: dict) -> dict[int, Question]:
     if not isinstance(raw_data, list):
         return {}
 

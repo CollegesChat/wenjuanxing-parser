@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wenjuanxing-parser"
-version = "0.1.0b1"  # 标注为 Beta 1 版本
+version = "0.1.0b2"
 description = "为CollegesChat的答卷准备的非通用解析器。仅支持填空/多选+可选额外文本/单选+可选额外文本/多项填空。"
 readme = "README.md"
 authors = [
@@ -16,17 +16,17 @@ keywords = ["wenjuanxing", "parser", "pydantic", "collegeschat", "questionnaire"
 classifiers = [
     "Development Status :: 4 - Beta",  # 明确标记为 Beta 阶段
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU Affero General Public License v3 (AGPLv3)",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "Topic :: Utilities",
 ]
 
 dependencies = [
     "pandas>=3.0.3",
-    "py-yaml12>=0.1.0",
     "pydantic>=2.13.4",
+]
+
+[project.optional-dependencies]
+all = [
+    "py-yaml12>=0.1.0",
     "python-calamine>=0.6.2",
 ]
 
@@ -53,3 +53,5 @@ exclude = [
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+[project.urls]
+Homepage = "https://github.com/CollegesChat/wenjuanxing-parser"

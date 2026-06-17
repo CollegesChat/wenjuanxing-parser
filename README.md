@@ -31,8 +31,7 @@ uv sync
 
 ## 🚀 快速使用
 
-解析器已经集成为了可直接执行的 Python 模块。你可以在项目根目录下直接使用命令列：
-
+安装：
 ```bash
 pip install wenjuanxing-parser[all] # 安装推荐的YAML（py-yaml12，用于问卷schema） + xlsx（python-calamine） 格式支持库
 pip install wenjuanxing-parser # 仅安装数据处理模块，数据用你自己的库读

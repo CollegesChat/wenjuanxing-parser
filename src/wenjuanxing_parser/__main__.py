@@ -109,6 +109,7 @@ def main():
         for q_num, question in sorted(questions_map.items()):
             q_answers = []
             for response in survey_data.data:
+                assert response.metadata is not None
                 user_id = response.metadata.num
                 ans_obj = response.answers.get(q_num)
 

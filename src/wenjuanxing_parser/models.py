@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from enum import StrEnum
 from ipaddress import IPv4Address, IPv6Address, ip_address
-from typing import Annotated, Literal, Mapping, Self
+from typing import Annotated, Any, Literal, Mapping, Self
 
 import pandas as pd
 from pydantic import Field, TypeAdapter, model_validator
@@ -140,13 +141,14 @@ class UserAnswer:
 
 @dataclass(frozen=True)
 class QuestionnaireResponse:
-    metadata: BasicData
+
     answers: dict[int, UserAnswer]
+    metadata: BasicData | None = None
 
     @classmethod
     def from_clean_dict(
         cls,
-        meta_data: BasicData,
+        meta_data: BasicData | None,
         row_answers_dict: dict[int, list[PandasValue] | PandasValue],
         questions_map: Mapping[int, Question],
     ) -> QuestionnaireResponse:
@@ -309,7 +311,8 @@ class QuestionnaireData:
 
     @classmethod
     def from_dataframe(
-        cls, df: pd.DataFrame, questions_map: Mapping[int, Question]
+        cls, df: pd.DataFrame, questions_map: Mapping[int, Question],
+        meta_extractor: Callable[[dict, Any], BasicData | None] | None = None
     ) -> QuestionnaireData:
         # 安全锁：踢掉由于尾部空行产生的空白行
         df_cleaned_rows = df.dropna(subset=['序号'])
@@ -337,7 +340,7 @@ class QuestionnaireData:
                 q_num = int(match.group(1))
                 if q_num in questions_map:
                     q_col_groups.setdefault(q_num, []).append(col_name)
-
+        extractor = meta_extractor or cls._build_basic_data_from_matrix
         # 3. 将元数据列更名，并转换为嵌套字典提速处理
         df_meta_renamed = df_cleaned_rows.rename(columns=rename_map)
         matrix_dict = df_meta_renamed.to_dict(orient='dict')
@@ -346,7 +349,7 @@ class QuestionnaireData:
         parsed_responses: list[QuestionnaireResponse] = []
         for idx in df_cleaned_rows.index:
             # 组装当前的元数据
-            meta_data = cls._build_basic_data_from_matrix(matrix_dict, idx)
+            meta_data = extractor(matrix_dict, idx)
 
             # 汇集当前行的业务答案字典
             row_answers_dict: dict[int, list[PandasValue] | PandasValue] = {}

@@ -40,6 +40,7 @@ def test_parser_flow(tmp_path: Path):
     assert len(survey_data.data) == 1
 
     first_response = survey_data.data[0]
+    assert first_response.metadata is not None
     assert first_response.metadata.num == 1
     assert first_response.metadata.ip.location == '本地'
 

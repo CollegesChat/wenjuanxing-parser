@@ -8,20 +8,23 @@ from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Annotated, Any, Literal, Mapping, Self
 
 import pandas as pd
-from pydantic import Field, TypeAdapter, model_validator
+from pydantic import BeforeValidator, Field, TypeAdapter, model_validator
 from pydantic.dataclasses import dataclass
 
 
 # 1. 基础特殊状态枚举
 class ResponseStatus(StrEnum):
-    EMPTY = '(空)'
-    SKIPPED = '(跳过)'
+    EMPTY = "(空)"
+    SKIPPED = "(跳过)"
 
 
 # 2. 基础类型别名
-type QuestionType = Literal['radio', 'checkbox', 'fill_blank', 'text_area']
-type IPAddress = IPv4Address | IPv6Address
+type QuestionType = Literal["radio", "checkbox", "fill_blank", "text_area"]
 type PandasValue = str | int | float | datetime | None
+type IPAddress = Annotated[
+    IPv4Address | IPv6Address | str,
+    BeforeValidator(lambda v: ip_address(v) if isinstance(v, str) else v),
+]
 
 
 @dataclass(frozen=True)
@@ -55,8 +58,8 @@ class Question:
     """题目定义的基类"""
 
     num: int  # 题号
-    title: str = ''  # 题干
-    type: QuestionType = 'radio'
+    title: str = ""  # 题干
+    type: QuestionType = "radio"
     required: bool = True
     prompt: str | None = None  # 填报提示/说明
 
@@ -64,39 +67,60 @@ class Question:
 @dataclass(frozen=True, kw_only=True)
 class RadioQuestion(Question):
     options: list[Option]
-    type: Literal['radio'] = 'radio'
+    type: Literal["radio"] = "radio"
 
 
 @dataclass(frozen=True, kw_only=True)
 class CheckboxQuestion(Question):
     options: list[Option]
-    type: Literal['checkbox'] = 'checkbox'
+    type: Literal["checkbox"] = "checkbox"
 
 
 @dataclass(frozen=True, kw_only=True)
 class FillBlankQuestion(Question):
-    blank_count: int = 1  # 填空题：记录这道题有几个空格需要填
-    regex: list[str]
-    type: Literal['fill_blank'] = 'fill_blank'
+    blank_count: int = Field(
+        2, ge=2, description="fill_blank 类型的多项填空题，空格数必须大于 1"
+    )
+    regex: list[str] = Field(default_factory=list)
+    type: Literal["fill_blank"] = "fill_blank"
 
-    @model_validator(mode='after')
-    def validate_regex_count_matches_blanks(self) -> Self:
-        if len(self.regex) != self.blank_count:
+    @model_validator(mode="after")
+    def validate_fill_blank_constraints(self) -> Self:
+        # 限制 2：校验正则规则数量与格子数是否匹配
+        if self.regex and len(self.regex) != self.blank_count:
             raise ValueError(
-                f'[题号 {self.num}] 校验失败: 该填空题声明了有 {self.blank_count} 个空格，'
-                f'但你却配置了 {len(self.regex)} 个正则表达式校验规则！'
+                f"[题号 {self.num}] 校验失败: 该填空题声明了有 {self.blank_count} 个空格，"
+                f"但你却配置了 {len(self.regex)} 个正则表达式校验规则！"
             )
         return self
 
 
 @dataclass(frozen=True, kw_only=True)
 class TextAreaQuestion(Question):
-    type: Literal['text_area'] = 'text_area'
+    type: Literal["text_area"] = "text_area"
+    regex: str | None = None
+
+
+def _infer_question_type(v: Any) -> Any:
+    """静默推导文本题型：当未指定或为 text 时，根据特征转换为 fill_blank 或 text_area"""
+    if isinstance(v, dict):
+        q_type = v.get("type")
+        if q_type in (None, "text"):
+            # 如果声明了 blank_count 或者 regex 是个列表，推导为填空题
+            if "blank_count" in v or isinstance(v.get("regex"), list):
+                v["type"] = "fill_blank"
+            else:
+                # 否则（如 regex 是字符串或缺省），推导为大文本简答题
+                v["type"] = "text_area"
+    return v
 
 
 type AnyQuestion = Annotated[
-    RadioQuestion | CheckboxQuestion | FillBlankQuestion | TextAreaQuestion,
-    Field(discriminator='type'),
+    Annotated[
+        RadioQuestion | CheckboxQuestion | FillBlankQuestion | TextAreaQuestion,
+        Field(discriminator="type"),
+    ],
+    BeforeValidator(_infer_question_type),
 ]
 
 
@@ -141,7 +165,6 @@ class UserAnswer:
 
 @dataclass(frozen=True)
 class QuestionnaireResponse:
-
     answers: dict[int, UserAnswer]
     metadata: BasicData | None = None
 
@@ -173,61 +196,61 @@ class QuestionnaireResponse:
                 else:
                     check_strs = [str(raw_value).strip()]
 
-                if len(set(check_strs)) == 1 and check_strs[0] in ('(空)', '(跳过)'):
+                if len(set(check_strs)) == 1 and check_strs[0] in ("(空)", "(跳过)"):
                     parsed_value = (
                         ResponseStatus.EMPTY
-                        if check_strs[0] == '(空)'
+                        if check_strs[0] == "(空)"
                         else ResponseStatus.SKIPPED
                     )
 
                 # 3. 进入各题型的具体解包派发
-                elif question.type == 'fill_blank':
-                    blank_count = getattr(question, 'blank_count', 1)
+                elif question.type == "fill_blank":
+                    blank_count = getattr(question, "blank_count", 1)
                     if isinstance(raw_value, list):
                         parts = []
                         for v in raw_value:
                             if pd.isna(v):
-                                parts.append('')
+                                parts.append("")
                             else:
                                 s = str(v).strip()
-                                if s == '(空)':
+                                if s == "(空)":
                                     parts.append(ResponseStatus.EMPTY)
-                                elif s == '(跳过)':
+                                elif s == "(跳过)":
                                     parts.append(ResponseStatus.SKIPPED)
-                                elif s.lower() == 'nan':
-                                    parts.append('')
+                                elif s.lower() == "nan":
+                                    parts.append("")
                                 else:
                                     parts.append(s)
                     else:
                         raw_str = str(raw_value).strip()
                         parts = []
-                        for p in re.split(r'[┋┦]', raw_str):
+                        for p in re.split(r"[┋┦]", raw_str):
                             s = p.strip()
-                            if s == '(空)':
+                            if s == "(空)":
                                 parts.append(ResponseStatus.EMPTY)
-                            elif s == '(跳过)':
+                            elif s == "(跳过)":
                                 parts.append(ResponseStatus.SKIPPED)
                             else:
                                 parts.append(s)
 
                     if len(parts) < blank_count:
-                        parts.extend([''] * (blank_count - len(parts)))
+                        parts.extend([""] * (blank_count - len(parts)))
                     parsed_value = parts[:blank_count]
 
                 else:
                     raw_str = str(raw_value).strip()
-                    if not raw_str or raw_str.lower() == 'nan':
+                    if not raw_str or raw_str.lower() == "nan":
                         parsed_value = None
-                    elif question.type == 'radio':
+                    elif question.type == "radio":
                         parsed_value = cls._parse_single_option(raw_str)
-                    elif question.type == 'checkbox':
-                        parts = [p.strip() for p in raw_str.split('┋') if p.strip()]
+                    elif question.type == "checkbox":
+                        parts = [p.strip() for p in raw_str.split("┋") if p.strip()]
                         parsed_value = (
                             [cls._parse_single_option(p) for p in parts]
                             if parts
                             else None
                         )
-                    elif question.type == 'text_area':
+                    elif question.type == "text_area":
                         parsed_value = raw_str
 
             # B. ✨ 核心功能扩展：动态执行“弱校验”计算
@@ -238,41 +261,41 @@ class QuestionnaireResponse:
             if question.required:
                 if parsed_value is None:
                     is_valid = False
-                    error_msg = '该题为必填项，但受访者未填写。'
+                    error_msg = "该题为必填项，但受访者未填写。"
                 elif parsed_value in (ResponseStatus.EMPTY, ResponseStatus.SKIPPED):
                     is_valid = False
                     error_msg = (
-                        f'该题为必填项，但当前处于特殊状态: {parsed_value.value}。'  # type: ignore
+                        f"该题为必填项，但当前处于特殊状态: {parsed_value.value}。"  # type: ignore
                     )
                 elif isinstance(parsed_value, list) and len(parsed_value) == 0:
                     is_valid = False
-                    error_msg = '该多选题为必选项，但未勾选任何选项。'
+                    error_msg = "该多选题为必选项，但未勾选任何选项。"
                 elif isinstance(parsed_value, list):
                     if any(
-                        v == '' or v in (ResponseStatus.EMPTY, ResponseStatus.SKIPPED)
+                        v == "" or v in (ResponseStatus.EMPTY, ResponseStatus.SKIPPED)
                         for v in parsed_value
                     ):
                         is_valid = False
-                        error_msg = '该填空题为必填项，但存在未完成填写的空格。'
+                        error_msg = "该填空题为必填项，但存在未完成填写的空格。"
 
             # 校验规则 2：正则表达式匹配检查 (Regex Constraint) -> 仅作用于填空题
             if (
                 is_valid
-                and question.type == 'fill_blank'
+                and question.type == "fill_blank"
                 and isinstance(parsed_value, list)
             ):
-                regex_rules = getattr(question, 'regex', [])
+                regex_rules = getattr(question, "regex", [])
                 for i, part in enumerate(parsed_value):
                     if i < len(regex_rules):
                         rule = regex_rules[i]
                         # 如果是非必填题目，允许其子格子为空
                         if (
                             part in (ResponseStatus.EMPTY, ResponseStatus.SKIPPED)
-                            or part == ''
+                            or part == ""
                         ):
                             if question.required:
                                 is_valid = False
-                                error_msg = f'第 {i + 1} 个空格未填写。'
+                                error_msg = f"第 {i + 1} 个空格未填写。"
                                 break
                             continue
 
@@ -292,15 +315,15 @@ class QuestionnaireResponse:
     @staticmethod
     def _parse_single_option(raw_str: str) -> ChosenOption:
         """解析问卷星导出的带附加文本的选项 (如: 选项名〖附加文本〗)"""
-        if '〖' in raw_str and raw_str.endswith('〗'):
-            parts = raw_str.split('〖', 1)
+        if "〖" in raw_str and raw_str.endswith("〗"):
+            parts = raw_str.split("〖", 1)
             return ChosenOption(
-                text=parts[0].strip(), additional_text=parts[1].rstrip('〗').strip()
+                text=parts[0].strip(), additional_text=parts[1].rstrip("〗").strip()
             )
-        if '(' in raw_str and raw_str.endswith(')'):
-            parts = raw_str.split('(', 1)
+        if "(" in raw_str and raw_str.endswith(")"):
+            parts = raw_str.split("(", 1)
             return ChosenOption(
-                text=parts[0].strip(), additional_text=parts[1].rstrip(')').strip()
+                text=parts[0].strip(), additional_text=parts[1].rstrip(")").strip()
             )
         return ChosenOption(text=raw_str, additional_text=None)
 
@@ -311,45 +334,57 @@ class QuestionnaireData:
 
     @classmethod
     def from_dataframe(
-        cls, df: pd.DataFrame, questions_map: Mapping[int, Question],
-        meta_extractor: Callable[[dict, Any], BasicData | None] | None = None
-    ) -> QuestionnaireData:
-        # 安全锁：踢掉由于尾部空行产生的空白行
-        df_cleaned_rows = df.dropna(subset=['序号'])
+        cls,
+        df: pd.DataFrame,
+        questions_map: Mapping[int, Question],
+        meta_extractor: Callable[[pd.DataFrame, Any], BasicData | None] | None = None,
+        q_num_extractor: Callable[[str], int | None]
+        | None = None,  # ✨ 新增：支持自定义题号提取器
+    ) -> Self:
+        """从原生 DataFrame 解析完整的问卷数据集"""
+        # 防止篡改原数据，清洗前拷贝
+        df_cleaned_rows = df.copy()
 
-        # 1. 建立基础元数据的列改名映射
-        rename_map: dict[str, str] = {
-            '序号': 'meta_num',
-            '提交答卷时间': 'meta_date',
-            '所用时间': 'meta_time',
-            '来源': 'meta_source',
-            '来源详情': 'meta_detail',
-            '来自IP': 'meta_ip',
+        # 默认的题号提取逻辑：匹配形如 "1、" 或 "12." 开始的字符串
+        def default_q_num_extractor(col_name: str) -> int | None:
+            match = re.match(r"^(\d+)[、\.]", col_name)
+            return int(match.group(1)) if match else None
+
+        # 优先使用用户传入的提取器
+        get_q_num = q_num_extractor or default_q_num_extractor
+
+        # 1. 建立元数据更名映射
+        rename_map = {
+            "序号": "meta_num",
+            "提交答卷时间": "meta_date",
+            "所用时间": "meta_time",
+            "来源": "meta_source",
+            "来源详情": "meta_detail",
+            "来自IP": "meta_ip",
         }
 
-        # 2. 核心联动：动态解析 DataFrame 中所有业务题目的列名，并按题号建组
-        # 完美兼容普通单列（如: 2、你的学校...）和多空跨列填空（如: 4、(1)... 与 4、(2)...）
+        # 2. 动态扫描列，过滤出业务题目列，并建立 题号 -> [列名] 的映射关系
         q_col_groups: dict[int, list[str]] = {}
-        for col_name in df_cleaned_rows.columns:
-            if col_name in rename_map:
+        for col in df_cleaned_rows.columns:
+            if col in rename_map:
                 continue
 
-            # 使用正则抓取列名开头的题号 (形如 "1、", "22.", "4、(1)")
-            match = re.match(r'^(\d+)[、.]', str(col_name))
-            if match:
-                q_num = int(match.group(1))
-                if q_num in questions_map:
-                    q_col_groups.setdefault(q_num, []).append(col_name)
-        extractor = meta_extractor or cls._build_basic_data_from_matrix
+            # 使用提取器解析题号
+            q_num = get_q_num(str(col))
+            if q_num is not None and q_num in questions_map:
+                q_col_groups.setdefault(q_num, []).append(str(col))
+
         # 3. 将元数据列更名，并转换为嵌套字典提速处理
         df_meta_renamed = df_cleaned_rows.rename(columns=rename_map)
-        matrix_dict = df_meta_renamed.to_dict(orient='dict')
+        matrix_dict = df_meta_renamed.to_dict(orient="dict")
 
         # 4. 横向遍历每一行，解耦拼装数据
         parsed_responses: list[QuestionnaireResponse] = []
         for idx in df_cleaned_rows.index:
-            # 组装当前的元数据
-            meta_data = extractor(matrix_dict, idx)
+            if meta_extractor is not None:
+                meta_data = meta_extractor(df_cleaned_rows, idx)
+            else:
+                meta_data = cls._build_basic_data_from_matrix(matrix_dict, idx)
 
             # 汇集当前行的业务答案字典
             row_answers_dict: dict[int, list[PandasValue] | PandasValue] = {}
@@ -357,7 +392,6 @@ class QuestionnaireData:
                 if len(columns) == 1:
                     row_answers_dict[q_num] = df_cleaned_rows.loc[idx, columns[0]]
                 else:
-                    # 跨列数据按原列序转换为列表送入解析层
                     row_answers_dict[q_num] = [
                         df_cleaned_rows.loc[idx, col] for col in columns
                     ]
@@ -370,33 +404,33 @@ class QuestionnaireData:
             )
             parsed_responses.append(response_obj)
 
-        # 5. 利用 TypeAdapter 一次性灌入 Pydantic 展开结构化校验
+        # 5. 利用 TypeAdapter 展开结构化校验
         adapter = TypeAdapter(cls)
-        return adapter.validate_python({'data': parsed_responses})
+        return adapter.validate_python({"data": parsed_responses})
 
     @staticmethod
     def _build_basic_data_from_matrix(matrix_dict: dict, idx: int) -> BasicData:
         """从元数据字典矩阵中通过行索引精确组装 BasicData"""
-        raw_date = matrix_dict['meta_date'][idx]
+        raw_date = matrix_dict["meta_date"][idx]
         answer_date = pd.to_datetime(raw_date).to_pydatetime()
 
-        raw_time = matrix_dict['meta_time'][idx]
-        seconds = int(str(raw_time).replace('秒', ''))
+        raw_time = matrix_dict["meta_time"][idx]
+        seconds = int(str(raw_time).replace("秒", ""))
 
-        raw_ip_str = str(matrix_dict['meta_ip'][idx]).strip()
-        if '(' in raw_ip_str and raw_ip_str.endswith(')'):
-            ip_part, location_part = raw_ip_str.split('(', 1)
+        raw_ip_str = str(matrix_dict["meta_ip"][idx]).strip()
+        if "(" in raw_ip_str and raw_ip_str.endswith(")"):
+            ip_part, location_part = raw_ip_str.split("(", 1)
             ip_str = ip_part.strip()
-            location = location_part.rstrip(')').strip()
+            location = location_part.rstrip(")").strip()
         else:
             ip_str = raw_ip_str
-            location = '未知'
+            location = "未知"
 
         return BasicData(
             answer_date=answer_date,
-            num=int(matrix_dict['meta_num'][idx]),
+            num=int(matrix_dict["meta_num"][idx]),
             time_used=timedelta(seconds=seconds),
-            source=str(matrix_dict['meta_source'][idx]),
-            source_detail=str(matrix_dict['meta_detail'][idx]),
+            source=str(matrix_dict["meta_source"][idx]),
+            source_detail=str(matrix_dict["meta_detail"][idx]),
             ip=IP(address=ip_address(ip_str), location=location),
         )

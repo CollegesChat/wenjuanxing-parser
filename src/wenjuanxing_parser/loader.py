@@ -1,51 +1,31 @@
-from typing import Any, cast
-
 from pydantic import TypeAdapter
 
-from .models import (
-    CheckboxQuestion,
-    FillBlankQuestion,
-    Option,
-    Question,
-    RadioQuestion,
-    TextAreaQuestion,
-)
+from .models import AnyQuestion, Question
 
 
-def load_questions_from_yaml(raw_data: dict) -> dict[int, Question]:
-    if not isinstance(raw_data, list):
+def load_questions_from_yaml(raw_data: list | dict) -> dict[int, Question]:
+    """直接复用 models.py 中的 AnyQuestion，实现单点维护题型推导逻辑"""
+    # 兼容直接传入字典（含 questions 键）或直接传入列表的格式
+    raw_list = (
+        raw_data.get("questions", raw_data) if isinstance(raw_data, dict) else raw_data
+    )
+    if not isinstance(raw_list, list):
         return {}
-
-    type_to_class = {
-        'radio': RadioQuestion,
-        'checkbox': CheckboxQuestion,
-        'fill_blank': FillBlankQuestion,
-        'text_area': TextAreaQuestion,
-    }
 
     questions_map: dict[int, Question] = {}
 
-    for item in raw_data:
-        if not isinstance(item, dict):
+    # 🌟 直接借用 models.py 定义的万能问题适配器
+    question_adapter = TypeAdapter(AnyQuestion)
+
+    for item in raw_list:
+        if not isinstance(item, dict) or item.get("num") is None:
             continue
 
-        config = cast(dict[str, Any], item)
+        # 1. Pydantic 会自动触发 _infer_question_type 完成类型推导
+        # 2. 自动根据 type 匹配到正确的 Dataclass（如 TextAreaQuestion）
+        # 3. 自动将嵌套的 options: list[dict] 转换成 list[Option] 实例
+        q_obj = question_adapter.validate_python(item)
 
-        if config.get('num') is None:
-            continue
-
-        q_num = int(config['num'])
-        q_type = str(config.get('type', 'radio'))
-        target_class = type_to_class.get(q_type, RadioQuestion)
-
-        if 'options' in config and isinstance(config['options'], list):
-            config['options'] = [
-                Option(**cast(dict[str, Any], opt))
-                for opt in config['options']
-                if isinstance(opt, dict)
-            ]
-
-        adapter = TypeAdapter(target_class)
-        questions_map[q_num] = adapter.validate_python(config)
+        questions_map[q_obj.num] = q_obj
 
     return questions_map

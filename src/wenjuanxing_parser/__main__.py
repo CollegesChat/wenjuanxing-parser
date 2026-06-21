@@ -6,17 +6,22 @@ import pandas as pd
 from pydantic import TypeAdapter
 from yaml12 import parse_yaml
 
-from .models import AnyQuestion, ChosenOption, QuestionnaireData, ResponseStatus
+from .models import (
+    AnyQuestion,
+    ChosenOption,
+    QuestionnaireData,
+    ResponseStatus,
+)
 
 
 def load_questions(config_path: Path) -> dict[int, AnyQuestion]:
     """读取 YAML 并利用 Pydantic 自动反序列化"""
-    with open(config_path, 'r', encoding='utf-8') as f:
+    with open(config_path, "r", encoding="utf-8") as f:
         raw = parse_yaml(f.read())
 
-    raw_map = raw.get('questions', raw) if isinstance(raw, dict) else raw
+    raw_map = raw.get("questions", raw) if isinstance(raw, dict) else raw
     if isinstance(raw_map, list):
-        raw_map = {q['num']: q for q in raw_map if 'num' in q}
+        raw_map = {q["num"]: q for q in raw_map if "num" in q}
 
     return TypeAdapter(dict[int, AnyQuestion]).validate_python(raw_map)
 
@@ -24,57 +29,57 @@ def load_questions(config_path: Path) -> dict[int, AnyQuestion]:
 def load_dataframe(data_path: Path) -> pd.DataFrame:
     """自动识别扩展名并读取数据"""
     suffix = data_path.suffix.lower()
-    if suffix == '.csv':
+    if suffix == ".csv":
         return pd.read_csv(data_path)
-    elif suffix == '.xlsx':
+    elif suffix == ".xlsx":
         # ⚡ 强绑定：命令行只认 calamine 引擎，快准狠
-        return pd.read_excel(data_path, engine='calamine')
+        return pd.read_excel(data_path, engine="calamine")
     else:
-        raise ValueError(f'不支持的文件格式: {suffix}，仅支持 .csv 或 .xlsx')
+        raise ValueError(f"不支持的文件格式: {suffix}，仅支持 .csv 或 .xlsx")
 
 
 def format_value(val) -> str:
     """将各种高度结构化的 AnswerValue 漂亮地扁平化为输出文字"""
     if val is None or isinstance(val, ResponseStatus):
-        return ''
+        return ""
 
     if isinstance(val, ChosenOption):
         if val.additional_text:
             # 智慧标点：如果附加文字开头自带标点则直接拼接，否则补个逗号
-            sep = '' if val.additional_text[0] in '，。、；：,.;:' else '，'
-            return f'{val.text}{sep}{val.additional_text}'
+            sep = "" if val.additional_text[0] in "，。、；：,.;:" else "，"
+            return f"{val.text}{sep}{val.additional_text}"
         return val.text
 
     if isinstance(val, list):
         # 适用于填空题多空格或多选题组，过滤空值后用逗号串接
         parts = [format_value(v) for v in val if v]
-        return '，'.join(p for p in parts if p)
+        return "，".join(p for p in parts if p)
 
     return str(val)
 
 
 def main():
-    parser = argparse.ArgumentParser(description='问卷星数据自动解析与精简文字导出工具')
+    parser = argparse.ArgumentParser(description="问卷星数据自动解析与精简文字导出工具")
     parser.add_argument(
-        '-d',
-        '--data',
+        "-d",
+        "--data",
         type=str,
-        default='data.csv',
-        help='问卷数据文件路径 (支援 .csv/.xlsx，预设: data.csv)',
+        default="data.csv",
+        help="问卷数据文件路径 (支援 .csv/.xlsx，预设: data.csv)",
     )
     parser.add_argument(
-        '-c',
-        '--config',
+        "-c",
+        "--config",
         type=str,
-        default='v2.yaml',
-        help='题库定义 YAML 路径 (预设: v2.yaml)',
+        default="v2.yaml",
+        help="题库定义 YAML 路径 (预设: v2.yaml)",
     )
     parser.add_argument(
-        '-o',
-        '--output',
+        "-o",
+        "--output",
         type=str,
         default=None,
-        help='导出文本路径 (预设直接打印到终端)',
+        help="导出文本路径 (预设直接打印到终端)",
     )
 
     args = parser.parse_args()
@@ -84,10 +89,10 @@ def main():
     # ✨ 智慧容错：如果预设的 data.csv 不存在，但旁边躺著一个 data.xlsx，自动切换
     if (
         not data_path.exists()
-        and args.data == 'data.csv'
-        and Path('data.xlsx').exists()
+        and args.data == "data.csv"
+        and Path("data.xlsx").exists()
     ):
-        data_path = Path('data.xlsx')
+        data_path = Path("data.xlsx")
 
     if not data_path.exists():
         print(f"❌ 错误：找不到数据文件 '{data_path}'", file=sys.stderr)
@@ -116,35 +121,35 @@ def main():
                 if ans_obj:
                     text_str = format_value(ans_obj.value).strip()
                     if text_str:
-                        q_answers.append(f'A{user_id}: {text_str}')
+                        q_answers.append(f"A{user_id}: {text_str}")
 
             # 当这道题确实有人回答时，才输出题干与答案清单
             if q_answers:
-                output_lines.append(f'Q: {question.title}')
+                output_lines.append(f"Q: {question.title}")
                 output_lines.extend(q_answers)
 
         # 4. 输出结果
-        final_text = '\n'.join(output_lines)
+        final_text = "\n".join(output_lines)
         if args.output:
-            Path(args.output).write_text(final_text, encoding='utf-8')
-            print(f'🎉 成功将结构化文本导出至: {args.output}')
+            Path(args.output).write_text(final_text, encoding="utf-8")
+            print(f"🎉 成功将结构化文本导出至: {args.output}")
         else:
             print(final_text)
 
     except Exception as e:
-        print(f'💥 运行时发生错误: {e}', file=sys.stderr)
+        print(f"💥 运行时发生错误: {e}", file=sys.stderr)
+        raise e
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-# 生成schema
 # import json
 
 # print(
 #     json.dumps(
 #         TypeAdapter(list[AnyQuestion]).json_schema(),
-#         indent=2,
+#         indent=4,
 #         ensure_ascii=False,
 #     )
 # )

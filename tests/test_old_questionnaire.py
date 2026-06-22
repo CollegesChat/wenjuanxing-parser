@@ -30,17 +30,26 @@ with get(
     df = pd.read_csv(io.StringIO("\n".join(lines)))
 
 
+class LegacyBasicData(BasicData):
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}("
+            f"answer_date={self.answer_date!r}, "
+            f"num={self.num!r})"
+        )
+
+
 # 使用自定义 mark 标记这是一个本地测试
-def test_my_local_only():
+def test_old():
     def meta_extractor(df: pd.DataFrame, idx: Any) -> BasicData | None:
         row = df.loc[idx]
-        return BasicData(  # 4. 移除了括号末尾的硬编码逗号，确保返回纯粹的实体对象，通过 ty check 校验
-            answer_date=datetime.fromisoformat(str(row["开始时间"])),
-            num=int(row["答题序号"]),
+        return LegacyBasicData(  # 4. 移除了括号末尾的硬编码逗号，确保返回纯粹的实体对象，通过 ty check 校验
+            answer_date=datetime.fromisoformat(str(row['开始时间'])),
+            num=int(row['答题序号']),
             time_used=timedelta(0),
-            source="null",
-            source_detail="null",
-            ip=IP(address="127.0.0.1", location="null"),
+            source='null',
+            source_detail='null',
+            ip=IP(address='127.0.0.1', location='null'),
         )
 
     def qnum_extractor(col_name: str) -> int | None:

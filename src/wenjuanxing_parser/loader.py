@@ -1,9 +1,9 @@
 from pydantic import TypeAdapter
 
-from .models import AnyQuestion, Question
+from .models import AnyQuestion
 
 
-def load_questions_from_yaml(raw_data: list | dict) -> dict[int, Question]:
+def load_questions_from_yaml(raw_data: list | dict) -> dict[int, AnyQuestion]:
     """直接复用 models.py 中的 AnyQuestion，实现单点维护题型推导逻辑"""
     # 兼容直接传入字典（含 questions 键）或直接传入列表的格式
     raw_list = (
@@ -12,7 +12,7 @@ def load_questions_from_yaml(raw_data: list | dict) -> dict[int, Question]:
     if not isinstance(raw_list, list):
         return {}
 
-    questions_map: dict[int, Question] = {}
+    questions_map: dict[int, AnyQuestion] = {}
 
     # 🌟 直接借用 models.py 定义的万能问题适配器
     question_adapter = TypeAdapter(AnyQuestion)

@@ -3,8 +3,9 @@ import sys
 from pathlib import Path
 
 import pandas as pd
-from pydantic import TypeAdapter
 from yaml12 import parse_yaml
+
+from wenjuanxing_parser import load_questions_from_yaml
 
 from .models import (
     AnyQuestion,
@@ -19,11 +20,7 @@ def load_questions(config_path: Path) -> dict[int, AnyQuestion]:
     with open(config_path, "r", encoding="utf-8") as f:
         raw = parse_yaml(f.read())
 
-    raw_map = raw.get("questions", raw) if isinstance(raw, dict) else raw
-    if isinstance(raw_map, list):
-        raw_map = {q["num"]: q for q in raw_map if "num" in q}
-
-    return TypeAdapter(dict[int, AnyQuestion]).validate_python(raw_map)
+    return load_questions_from_yaml(raw)  # type: ignore
 
 
 def load_dataframe(data_path: Path) -> pd.DataFrame:
@@ -32,7 +29,6 @@ def load_dataframe(data_path: Path) -> pd.DataFrame:
     if suffix == ".csv":
         return pd.read_csv(data_path)
     elif suffix == ".xlsx":
-        # ⚡ 强绑定：命令行只认 calamine 引擎，快准狠
         return pd.read_excel(data_path, engine="calamine")
     else:
         raise ValueError(f"不支持的文件格式: {suffix}，仅支持 .csv 或 .xlsx")
@@ -45,7 +41,6 @@ def format_value(val) -> str:
 
     if isinstance(val, ChosenOption):
         if val.additional_text:
-            # 智慧标点：如果附加文字开头自带标点则直接拼接，否则补个逗号
             sep = "" if val.additional_text[0] in "，。、；：,.;:" else "，"
             return f"{val.text}{sep}{val.additional_text}"
         return val.text

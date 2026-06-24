@@ -163,6 +163,9 @@ class UserAnswer:
     )
 
 
+type Questionnaire = Mapping[int, Question]
+
+
 @dataclass(frozen=True)
 class QuestionnaireResponse:
     answers: dict[int, UserAnswer]
@@ -173,11 +176,12 @@ class QuestionnaireResponse:
         cls,
         meta_data: BasicData | None,
         row_answers_dict: dict[int, list[PandasValue] | PandasValue],
-        questions_map: Mapping[int, Question],
+        questions_map: Questionnaire,
     ) -> QuestionnaireResponse:
         """根据行/多列映射组装单人答卷，并同步完成弱校验。"""
         answers: dict[int, UserAnswer] = {}
-
+        if not TypeAdapter(Questionnaire).validate_python(questions_map):
+            raise TypeError("questions_map 必须是一个 Questionnaire 类型！")
         for q_num, question in questions_map.items():
             raw_value = row_answers_dict.get(q_num)
 
@@ -347,7 +351,7 @@ class QuestionnaireData:
 
         # 默认的题号提取逻辑：匹配形如 "1、" 或 "12." 开始的字符串
         def default_q_num_extractor(col_name: str) -> int | None:
-            match = re.match(r"^(\d+)[、\.]", col_name)
+            match = re.match(r'^(\d+)[、\.]', col_name)
             return int(match.group(1)) if match else None
 
         # 优先使用用户传入的提取器
@@ -355,12 +359,12 @@ class QuestionnaireData:
 
         # 1. 建立元数据更名映射
         rename_map = {
-            "序号": "meta_num",
-            "提交答卷时间": "meta_date",
-            "所用时间": "meta_time",
-            "来源": "meta_source",
-            "来源详情": "meta_detail",
-            "来自IP": "meta_ip",
+            '序号': 'meta_num',
+            '提交答卷时间': 'meta_date',
+            '所用时间': 'meta_time',
+            '来源': 'meta_source',
+            '来源详情': 'meta_detail',
+            '来自IP': 'meta_ip',
         }
 
         # 2. 动态扫描列，过滤出业务题目列，并建立 题号 -> [列名] 的映射关系
@@ -376,7 +380,13 @@ class QuestionnaireData:
 
         # 3. 将元数据列更名，并转换为嵌套字典提速处理
         df_meta_renamed = df_cleaned_rows.rename(columns=rename_map)
-        matrix_dict = df_meta_renamed.to_dict(orient="dict")
+        matrix_dict = df_meta_renamed.to_dict(orient='dict')
+
+        # 🌟 【重大优化点】提前提取题目列对应的字典引用，彻底消灭循环内的 .loc 以及重复的列名 Hash 查找
+        q_resolved_groups = {
+            q_num: [matrix_dict[col] for col in columns]
+            for q_num, columns in q_col_groups.items()
+        }
 
         # 4. 横向遍历每一行，解耦拼装数据
         parsed_responses: list[QuestionnaireResponse] = []
@@ -388,13 +398,12 @@ class QuestionnaireData:
 
             # 汇集当前行的业务答案字典
             row_answers_dict: dict[int, list[PandasValue] | PandasValue] = {}
-            for q_num, columns in q_col_groups.items():
-                if len(columns) == 1:
-                    row_answers_dict[q_num] = df_cleaned_rows.loc[idx, columns[0]]
+            for q_num, col_dicts in q_resolved_groups.items():
+                # 🌟 优化：直接从预取字典中通过行索引 idx 取值，耗时从毫秒级降至纳秒级
+                if len(col_dicts) == 1:
+                    row_answers_dict[q_num] = col_dicts[0][idx]
                 else:
-                    row_answers_dict[q_num] = [
-                        df_cleaned_rows.loc[idx, col] for col in columns
-                    ]
+                    row_answers_dict[q_num] = [col_dict[idx] for col_dict in col_dicts]
 
             # 转换为结构化实体
             response_obj = QuestionnaireResponse.from_clean_dict(
@@ -406,31 +415,31 @@ class QuestionnaireData:
 
         # 5. 利用 TypeAdapter 展开结构化校验
         adapter = TypeAdapter(cls)
-        return adapter.validate_python({"data": parsed_responses})
+        return adapter.validate_python({'data': parsed_responses})
 
     @staticmethod
     def _build_basic_data_from_matrix(matrix_dict: dict, idx: int) -> BasicData:
         """从元数据字典矩阵中通过行索引精确组装 BasicData"""
-        raw_date = matrix_dict["meta_date"][idx]
+        raw_date = matrix_dict['meta_date'][idx]
         answer_date = pd.to_datetime(raw_date).to_pydatetime()
 
-        raw_time = matrix_dict["meta_time"][idx]
-        seconds = int(str(raw_time).replace("秒", ""))
+        raw_time = matrix_dict['meta_time'][idx]
+        seconds = int(str(raw_time).replace('秒', ''))
 
-        raw_ip_str = str(matrix_dict["meta_ip"][idx]).strip()
-        if "(" in raw_ip_str and raw_ip_str.endswith(")"):
-            ip_part, location_part = raw_ip_str.split("(", 1)
+        raw_ip_str = str(matrix_dict['meta_ip'][idx]).strip()
+        if '(' in raw_ip_str and raw_ip_str.endswith(')'):
+            ip_part, location_part = raw_ip_str.split('(', 1)
             ip_str = ip_part.strip()
-            location = location_part.rstrip(")").strip()
+            location = location_part.rstrip(')').strip()
         else:
             ip_str = raw_ip_str
-            location = "未知"
+            location = '未知'
 
         return BasicData(
             answer_date=answer_date,
-            num=int(matrix_dict["meta_num"][idx]),
+            num=int(matrix_dict['meta_num'][idx]),
             time_used=timedelta(seconds=seconds),
-            source=str(matrix_dict["meta_source"][idx]),
-            source_detail=str(matrix_dict["meta_detail"][idx]),
+            source=str(matrix_dict['meta_source'][idx]),
+            source_detail=str(matrix_dict['meta_detail'][idx]),
             ip=IP(address=ip_address(ip_str), location=location),
         )

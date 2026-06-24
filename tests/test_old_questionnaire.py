@@ -39,7 +39,6 @@ class LegacyBasicData(BasicData):
         )
 
 
-# 使用自定义 mark 标记这是一个本地测试
 def test_old():
     def meta_extractor(df: pd.DataFrame, idx: Any) -> BasicData | None:
         row = df.loc[idx]

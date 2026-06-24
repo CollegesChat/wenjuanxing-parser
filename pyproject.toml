@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wenjuanxing-parser"
-version = "0.1.0b4"
+version = "0.2.0b0"
 description = "为CollegesChat的答卷准备的非通用解析器。仅支持填空/多选+可选额外文本/单选+可选额外文本/多项填空。"
 readme = "README.md"
 authors = [

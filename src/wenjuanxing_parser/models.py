@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from enum import StrEnum
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Annotated, Any, Literal, Mapping, Self
 
-import pandas as pd
+import polars as pl
 from pydantic import BeforeValidator, Field, TypeAdapter, model_validator
 from pydantic.dataclasses import dataclass
 
@@ -20,7 +20,7 @@ class ResponseStatus(StrEnum):
 
 # 2. 基础类型别名
 type QuestionType = Literal["radio", "checkbox", "fill_blank", "text_area"]
-type PandasValue = str | int | float | datetime | None
+type PolarsValue = str | int | float | datetime | None
 type IPAddress = Annotated[
     IPv4Address | IPv6Address | str,
     BeforeValidator(lambda v: ip_address(v) if isinstance(v, str) else v),
@@ -78,7 +78,7 @@ class CheckboxQuestion(Question):
 
 @dataclass(frozen=True, kw_only=True)
 class TextAreaQuestion(Question):
-    type: Literal['text_area'] = 'text_area'
+    type: Literal["text_area"] = "text_area"
     length_limit: int | None = None
 
 
@@ -172,31 +172,34 @@ class QuestionnaireResponse:
     metadata: BasicData | None = None
 
     @classmethod
-    def from_clean_dict(
+    def parse_from_dict(
         cls,
         meta_data: BasicData | None,
-        row_answers_dict: dict[int, list[PandasValue] | PandasValue],
+        row_answers_dict: dict[int, list[PolarsValue] | PolarsValue],
         questions_map: Questionnaire,
     ) -> QuestionnaireResponse:
-        """根据行/多列映射组装单人答卷，并同步完成弱校验。"""
+        """【独立步骤 1】纯粹的数据解析层：将原始多维/扁平数据无痛解包为结构化对象，不含任何业务校验。"""
         answers: dict[int, UserAnswer] = {}
         if not isinstance(questions_map, dict):
-            raise TypeError('questions_map 必须是一个字典映射！')
+            raise TypeError("questions_map 必须是一个字典映射！")
+
         for q_num, question in questions_map.items():
             raw_value = row_answers_dict.get(q_num)
-
-            # A. 初始化解析出的底层值
             parsed_value: AnswerValue = None
 
-            # 1. 拦截完全缺失
+            # 1. 拦截完全缺失 (Polars 字典导出后空值为 None)
             if raw_value is None or (
-                not isinstance(raw_value, list) and pd.isna(raw_value)
+                not isinstance(raw_value, list) and str(raw_value).lower() == "nan"
             ):
                 parsed_value = None
             else:
                 # 2. 前置判定整题是否属于 (空) 或 (跳过) 状态
                 if isinstance(raw_value, list):
-                    check_strs = [str(v).strip() for v in raw_value if pd.notna(v)]
+                    check_strs = [
+                        str(v).strip()
+                        for v in raw_value
+                        if v is not None and str(v).lower() != "nan"
+                    ]
                 else:
                     check_strs = [str(raw_value).strip()]
 
@@ -213,7 +216,7 @@ class QuestionnaireResponse:
                     if isinstance(raw_value, list):
                         parts = []
                         for v in raw_value:
-                            if pd.isna(v):
+                            if v is None or str(v).lower() == "nan":
                                 parts.append("")
                             else:
                                 s = str(v).strip()
@@ -257,7 +260,23 @@ class QuestionnaireResponse:
                     elif question.type == "text_area":
                         parsed_value = raw_str
 
-            # B. ✨ 核心功能扩展：动态执行“弱校验”计算
+            # 仅组装干净的数据，校验属性保持默认值
+            answers[q_num] = UserAnswer(value=parsed_value)
+
+        return cls(metadata=meta_data, answers=answers)
+
+    def validate(self, questions_map: Questionnaire) -> QuestionnaireResponse:
+        """【独立步骤 2】纯粹的业务校验层：传入配置元数据，对当前已解析的答卷数据动态计算弱校验，返回带状态的新答卷。"""
+        validated_answers: dict[int, UserAnswer] = {}
+
+        for q_num, user_ans in self.answers.items():
+            question = questions_map.get(q_num)
+            if not question:
+                # 若题库里没配置该题，保持解析原样
+                validated_answers[q_num] = user_ans
+                continue
+
+            parsed_value = user_ans.value
             is_valid = True
             error_msg = None
 
@@ -268,9 +287,7 @@ class QuestionnaireResponse:
                     error_msg = "该题为必填项，但受访者未填写。"
                 elif parsed_value in (ResponseStatus.EMPTY, ResponseStatus.SKIPPED):
                     is_valid = False
-                    error_msg = (
-                        f"该题为必填项，但当前处于特殊状态: {parsed_value.value}。"  # type: ignore
-                    )
+                    error_msg = f"该题为必填项，但当前处于特殊状态: {parsed_value}。"
                 elif isinstance(parsed_value, list) and len(parsed_value) == 0:
                     is_valid = False
                     error_msg = "该多选题为必选项，但未勾选任何选项。"
@@ -292,7 +309,6 @@ class QuestionnaireResponse:
                 for i, part in enumerate(parsed_value):
                     if i < len(regex_rules):
                         rule = regex_rules[i]
-                        # 如果是非必填题目，允许其子格子为空
                         if (
                             part in (ResponseStatus.EMPTY, ResponseStatus.SKIPPED)
                             or part == ""
@@ -303,18 +319,28 @@ class QuestionnaireResponse:
                                 break
                             continue
 
-                        # 执行正则匹配检查
                         if not re.match(rule, str(part)):
                             is_valid = False
                             error_msg = f"第 {i + 1} 个空格填写的文本 '{part}' 未通过格式校验规则。"
                             break
 
-            # 装载入带状态的 UserAnswer 容器
-            answers[q_num] = UserAnswer(
+            validated_answers[q_num] = UserAnswer(
                 value=parsed_value, is_valid=is_valid, error_msg=error_msg
             )
 
-        return cls(metadata=meta_data, answers=answers)
+        # 返回打上验证标记的新对象实例
+        return self.__class__(metadata=self.metadata, answers=validated_answers)
+
+    @classmethod
+    def from_clean_dict(
+        cls,
+        meta_data: BasicData | None,
+        row_answers_dict: dict[int, list[PolarsValue] | PolarsValue],
+        questions_map: Questionnaire,
+    ) -> QuestionnaireResponse:
+        """【向后兼容管线】顺序调用解析和验证，保证上游原有调用代码无需任何修改。"""
+        response = cls.parse_from_dict(meta_data, row_answers_dict, questions_map)
+        return response.validate(questions_map)
 
     @staticmethod
     def _parse_single_option(raw_str: str) -> ChosenOption:
@@ -339,19 +365,19 @@ class QuestionnaireData:
     @classmethod
     def from_dataframe(
         cls,
-        df: pd.DataFrame,
+        df: pl.DataFrame,
         questions_map: Mapping[int, Question],
-        meta_extractor: Callable[[pd.DataFrame, Any], BasicData | None] | None = None,
+        meta_extractor: Callable[[pl.DataFrame, Any], BasicData | None] | None = None,
         q_num_extractor: Callable[[str], int | None]
         | None = None,  # ✨ 新增：支持自定义题号提取器
     ) -> Self:
-        """从原生 DataFrame 解析完整的问卷数据集"""
-        # 防止篡改原数据，清洗前拷贝
-        df_cleaned_rows = df.copy()
+        """从原生 Polars DataFrame 解析完整的问卷数据集"""
+        # 防止篡改原数据，清洗前拷贝 (Polars 使用 clone)
+        df_cleaned_rows = df.clone()
 
         # 默认的题号提取逻辑：匹配形如 "1、" 或 "12." 开始的字符串
         def default_q_num_extractor(col_name: str) -> int | None:
-            match = re.match(r'^(\d+)[、\.]', col_name)
+            match = re.match(r"^(\d+)[、\.]", col_name)
             return int(match.group(1)) if match else None
 
         # 优先使用用户传入的提取器
@@ -359,12 +385,12 @@ class QuestionnaireData:
 
         # 1. 建立元数据更名映射
         rename_map = {
-            '序号': 'meta_num',
-            '提交答卷时间': 'meta_date',
-            '所用时间': 'meta_time',
-            '来源': 'meta_source',
-            '来源详情': 'meta_detail',
-            '来自IP': 'meta_ip',
+            "序号": "meta_num",
+            "提交答卷时间": "meta_date",
+            "所用时间": "meta_time",
+            "来源": "meta_source",
+            "来源详情": "meta_detail",
+            "来自IP": "meta_ip",
         }
 
         # 2. 动态扫描列，过滤出业务题目列，并建立 题号 -> [列名] 的映射关系
@@ -378,28 +404,31 @@ class QuestionnaireData:
             if q_num is not None and q_num in questions_map:
                 q_col_groups.setdefault(q_num, []).append(str(col))
 
-        # 3. 将元数据列更名，并转换为嵌套字典提速处理
-        df_meta_renamed = df_cleaned_rows.rename(columns=rename_map)
-        matrix_dict = df_meta_renamed.to_dict(orient='dict')
+        # 3. 将元数据列更名，过滤掉不存在的列防止 Polars 抛错，并转换为字典提速处理
+        valid_rename_map = {
+            k: v for k, v in rename_map.items() if k in df_cleaned_rows.columns
+        }
+        df_meta_renamed = df_cleaned_rows.rename(valid_rename_map)
+        matrix_dict = df_meta_renamed.to_dict(as_series=False)
 
-        # 🌟 【重大优化点】提前提取题目列对应的字典引用，彻底消灭循环内的 .loc 以及重复的列名 Hash 查找
+        # 🌟 【重大优化点】提前提取题目列对应的字典引用，彻底消灭循环内的重复的列名 Hash 查找
         q_resolved_groups = {
             q_num: [matrix_dict[col] for col in columns]
             for q_num, columns in q_col_groups.items()
         }
 
-        # 4. 横向遍历每一行，解耦拼装数据
+        # 4. 横向遍历每一行 (使用 Polars 的 height 获取行数)，解耦拼装数据
         parsed_responses: list[QuestionnaireResponse] = []
-        for idx in df_cleaned_rows.index:
+        for idx in range(df_cleaned_rows.height):
             if meta_extractor is not None:
                 meta_data = meta_extractor(df_cleaned_rows, idx)
             else:
                 meta_data = cls._build_basic_data_from_matrix(matrix_dict, idx)
 
             # 汇集当前行的业务答案字典
-            row_answers_dict: dict[int, list[PandasValue] | PandasValue] = {}
+            row_answers_dict: dict[int, list[PolarsValue] | PolarsValue] = {}
             for q_num, col_dicts in q_resolved_groups.items():
-                # 🌟 优化：直接从预取字典中通过行索引 idx 取值，耗时从毫秒级降至纳秒级
+                # 🌟 优化：直接从预取内置 Python 列表通过行索引 idx 取值，耗时降至纳秒级
                 if len(col_dicts) == 1:
                     row_answers_dict[q_num] = col_dicts[0][idx]
                 else:
@@ -415,31 +444,48 @@ class QuestionnaireData:
 
         # 5. 利用 TypeAdapter 展开结构化校验
         adapter = TypeAdapter(cls)
-        return adapter.validate_python({'data': parsed_responses})
+        return adapter.validate_python({"data": parsed_responses})
 
     @staticmethod
     def _build_basic_data_from_matrix(matrix_dict: dict, idx: int) -> BasicData:
         """从元数据字典矩阵中通过行索引精确组装 BasicData"""
-        raw_date = matrix_dict['meta_date'][idx]
-        answer_date = pd.to_datetime(raw_date).to_pydatetime()
+        raw_date = matrix_dict["meta_date"][idx]
+        if isinstance(raw_date, datetime):
+            answer_date = raw_date
+        elif isinstance(raw_date, date):
+            answer_date = datetime.combine(raw_date, datetime.min.time())
+        elif isinstance(raw_date, str):
+            try:
+                answer_date = datetime.fromisoformat(raw_date)
+            except ValueError:
+                for fmt in ("%Y/%m/%d %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+                    try:
+                        answer_date = datetime.strptime(raw_date, fmt)
+                        break
+                    except ValueError:
+                        continue
+                else:
+                    raise ValueError(f"无法解析的时间格式: {raw_date}")
+        else:
+            answer_date = raw_date
 
-        raw_time = matrix_dict['meta_time'][idx]
-        seconds = int(str(raw_time).replace('秒', ''))
+        raw_time = matrix_dict["meta_time"][idx]
+        seconds = int(str(raw_time).replace("秒", ""))
 
-        raw_ip_str = str(matrix_dict['meta_ip'][idx]).strip()
-        if '(' in raw_ip_str and raw_ip_str.endswith(')'):
-            ip_part, location_part = raw_ip_str.split('(', 1)
+        raw_ip_str = str(matrix_dict["meta_ip"][idx]).strip()
+        if "(" in raw_ip_str and raw_ip_str.endswith(")"):
+            ip_part, location_part = raw_ip_str.split("(", 1)
             ip_str = ip_part.strip()
-            location = location_part.rstrip(')').strip()
+            location = location_part.rstrip(")").strip()
         else:
             ip_str = raw_ip_str
-            location = '未知'
+            location = "未知"
 
         return BasicData(
             answer_date=answer_date,
-            num=int(matrix_dict['meta_num'][idx]),
+            num=int(matrix_dict["meta_num"][idx]),
             time_used=timedelta(seconds=seconds),
-            source=str(matrix_dict['meta_source'][idx]),
-            source_detail=str(matrix_dict['meta_detail'][idx]),
+            source=str(matrix_dict["meta_source"][idx]),
+            source_detail=str(matrix_dict["meta_detail"][idx]),
             ip=IP(address=ip_address(ip_str), location=location),
         )

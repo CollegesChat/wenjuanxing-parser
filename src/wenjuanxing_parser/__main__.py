@@ -2,7 +2,7 @@ import argparse
 import sys
 from pathlib import Path
 
-import pandas as pd
+import polars as pl
 from yaml12 import parse_yaml
 
 from wenjuanxing_parser import load_questions_from_yaml
@@ -23,13 +23,13 @@ def load_questions(config_path: Path) -> dict[int, AnyQuestion]:
     return load_questions_from_yaml(raw)  # type: ignore
 
 
-def load_dataframe(data_path: Path) -> pd.DataFrame:
-    """自动识别扩展名并读取数据"""
+def load_dataframe(data_path: Path) -> pl.DataFrame:
+    """自动识别扩展名并使用 Polars 读取数据"""
     suffix = data_path.suffix.lower()
     if suffix == ".csv":
-        return pd.read_csv(data_path)
+        return pl.read_csv(data_path)
     elif suffix == ".xlsx":
-        return pd.read_excel(data_path, engine="calamine")
+        return pl.read_excel(data_path, engine="calamine")
     else:
         raise ValueError(f"不支持的文件格式: {suffix}，仅支持 .csv 或 .xlsx")
 
@@ -139,12 +139,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-# import json
-
-# print(
-#     json.dumps(
-#         TypeAdapter(list[AnyQuestion]).json_schema(),
-#         indent=4,
-#         ensure_ascii=False,
-#     )
-# )

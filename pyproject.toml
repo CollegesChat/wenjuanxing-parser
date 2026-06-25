@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wenjuanxing-parser"
-version = "0.2.0b0"
+version = "0.2.0b1"
 description = "为CollegesChat的答卷准备的非通用解析器。仅支持填空/多选+可选额外文本/单选+可选额外文本/多项填空。"
 readme = "README.md"
 authors = [
@@ -20,7 +20,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "pandas>=3.0.3",
+    "fastexcel>=0.20.2",
+    "polars>=1.42.0",
     "pydantic>=2.13.4",
 ]
 
@@ -56,3 +57,6 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 [project.urls]
 Homepage = "https://github.com/CollegesChat/wenjuanxing-parser"
+[tool.ruff.format]
+# 将默认风格改为单引号
+quote-style = "double"

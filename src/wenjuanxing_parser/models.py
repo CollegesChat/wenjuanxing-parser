@@ -77,6 +77,12 @@ class CheckboxQuestion(Question):
 
 
 @dataclass(frozen=True, kw_only=True)
+class TextAreaQuestion(Question):
+    type: Literal['text_area'] = 'text_area'
+    length_limit: int | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
 class FillBlankQuestion(Question):
     blank_count: int = Field(
         2, ge=2, description="fill_blank 类型的多项填空题，空格数必须大于 1"
@@ -93,12 +99,6 @@ class FillBlankQuestion(Question):
                 f"但你却配置了 {len(self.regex)} 个正则表达式校验规则！"
             )
         return self
-
-
-@dataclass(frozen=True, kw_only=True)
-class TextAreaQuestion(Question):
-    type: Literal["text_area"] = "text_area"
-    regex: str | None = None
 
 
 def _infer_question_type(v: Any) -> Any:
@@ -135,8 +135,8 @@ class ChosenOption:
 # 3. 细化各种题型的内部容器类型
 type RadioAnswer = ChosenOption
 type CheckboxAnswer = list[ChosenOption]
-type FillBlankAnswer = list[str | ResponseStatus]  # 允许格子级别包含枚举值
 type TextAreaAnswer = str
+type FillBlankAnswer = list[TextAreaAnswer | ResponseStatus]  # 允许格子级别包含枚举值
 
 # 统一的答案值类型（支持整题级状态）
 type AnswerValue = (
@@ -180,8 +180,8 @@ class QuestionnaireResponse:
     ) -> QuestionnaireResponse:
         """根据行/多列映射组装单人答卷，并同步完成弱校验。"""
         answers: dict[int, UserAnswer] = {}
-        if not TypeAdapter(Questionnaire).validate_python(questions_map):
-            raise TypeError("questions_map 必须是一个 Questionnaire 类型！")
+        if not isinstance(questions_map, dict):
+            raise TypeError('questions_map 必须是一个字典映射！')
         for q_num, question in questions_map.items():
             raw_value = row_answers_dict.get(q_num)
 

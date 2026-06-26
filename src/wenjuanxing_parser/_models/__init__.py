@@ -1,44 +1,44 @@
-"""Public API facade for models.
+"""内部模型模块，通过 facade 暴露"""
 
-This module provides a backwards-compatible re-export of all public types
-and classes from the internal _models package.
-"""
-
-from ._models import (
-    IP,
+from .answers import (
     AnswerValue,
-    AnyQuestion,
-    BasicData,
     CheckboxAnswer,
-    CheckboxQuestion,
     ChosenOption,
     FillBlankAnswer,
-    FillBlankQuestion,
-    IPAddress,
-    Option,
-    PolarsValue,
-    Question,
-    Questionnaire,
-    QuestionnaireData,
-    QuestionnaireResponse,
-    QuestionType,
     RadioAnswer,
-    RadioQuestion,
-    ResponseStatus,
     TextAreaAnswer,
-    TextAreaQuestion,
     UserAnswer,
 )
+from .base import (
+    IP,
+    BasicData,
+    IPAddress,
+    PolarsValue,
+    QuestionType,
+    ResponseStatus,
+)
+from .dataframe import QuestionnaireData
+from .questions import (
+    AnyQuestion,
+    CheckboxQuestion,
+    FillBlankQuestion,
+    Option,
+    Question,
+    Questionnaire,
+    RadioQuestion,
+    TextAreaQuestion,
+)
+from .response import QuestionnaireResponse
 
 __all__ = [
-    # Base types and enums
+    # base
     "ResponseStatus",
     "QuestionType",
     "PolarsValue",
     "IPAddress",
     "IP",
     "BasicData",
-    # Question types
+    # questions
     "Option",
     "Question",
     "RadioQuestion",
@@ -47,7 +47,7 @@ __all__ = [
     "FillBlankQuestion",
     "AnyQuestion",
     "Questionnaire",
-    # Answer types
+    # answers
     "ChosenOption",
     "RadioAnswer",
     "CheckboxAnswer",
@@ -55,7 +55,8 @@ __all__ = [
     "FillBlankAnswer",
     "AnswerValue",
     "UserAnswer",
-    # Response and data structures
+    # response
     "QuestionnaireResponse",
+    # dataframe
     "QuestionnaireData",
 ]

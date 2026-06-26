@@ -74,14 +74,13 @@ class QuestionnaireResponse:
                     else:
                         raw_str = str(raw_value).strip()
                         parts = []
-                        for p in re.split(r"[┋┦]", raw_str):
-                            s = p.strip()
-                            if s == "(空)":
+                        for p in cls._split_outside_brackets(raw_str):
+                            if p == "(空)":
                                 parts.append(ResponseStatus.EMPTY)
-                            elif s == "(跳过)":
+                            elif p == "(跳过)":
                                 parts.append(ResponseStatus.SKIPPED)
                             else:
-                                parts.append(s)
+                                parts.append(p)
 
                     if len(parts) < blank_count:
                         parts.extend([""] * (blank_count - len(parts)))
@@ -94,7 +93,7 @@ class QuestionnaireResponse:
                     elif question.type == "radio":
                         parsed_value = cls._parse_single_option(raw_str)
                     elif question.type == "checkbox":
-                        parts = [p.strip() for p in raw_str.split("┋") if p.strip()]
+                        parts = cls._split_outside_brackets(raw_str)
                         parsed_value = (
                             [cls._parse_single_option(p) for p in parts]
                             if parts
@@ -186,16 +185,37 @@ class QuestionnaireResponse:
         return response.validate(questions_map)
 
     @staticmethod
+    def _split_outside_brackets(text: str) -> list[str]:
+        """用正则表达式和占位符法：在 〖...〗 外按 ┋ 分割，保留内部 ┋"""
+        brackets = []
+        def save_bracket(m):
+            brackets.append(m.group())
+            return f"§{len(brackets)-1}§"
+        
+        # 保存所有 〖...〗，用占位符替换
+        temp = re.sub(r'〖[^〗]*〗', save_bracket, text)
+        # 按 ┋ 分割
+        parts = temp.split('┋')
+        # 恢复所有 〖...〗
+        result = []
+        for part in parts:
+            restored = part
+            for i, bracket in enumerate(brackets):
+                restored = restored.replace(f"§{i}§", bracket)
+            stripped = restored.strip()
+            if stripped:
+                result.append(stripped)
+        return result
+
+    @staticmethod
     def _parse_single_option(raw_str: str) -> ChosenOption:
         """解析问卷星导出的带附加文本的选项 (如: 选项名〖附加文本〗)"""
-        if "〖" in raw_str and raw_str.endswith("〗"):
+        if "〖" in raw_str:
             parts = raw_str.split("〖", 1)
+            text = parts[0].strip()
+            additional = parts[1].rstrip("〗").strip() if len(parts) > 1 else ""
             return ChosenOption(
-                text=parts[0].strip(), additional_text=parts[1].rstrip("〗").strip()
-            )
-        if "(" in raw_str and raw_str.endswith(")"):
-            parts = raw_str.split("(", 1)
-            return ChosenOption(
-                text=parts[0].strip(), additional_text=parts[1].rstrip(")").strip()
+                text=text,
+                additional_text=additional if additional else None
             )
         return ChosenOption(text=raw_str, additional_text=None)

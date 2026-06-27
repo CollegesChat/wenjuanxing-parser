@@ -2,9 +2,10 @@
 
 from pydantic.dataclasses import dataclass
 
-from .base import ResponseStatus
+from .base import ResponseStatus, smart_repr
 
 
+@smart_repr
 @dataclass(frozen=True)
 class ChosenOption:
     """存放选中选项及其附带文本的容器"""
@@ -30,6 +31,7 @@ type AnswerValue = (
 )
 
 
+@smart_repr
 @dataclass(frozen=True)
 class UserAnswer:
     """

@@ -211,6 +211,15 @@ wheels = [
 ]
 
 [[package]]
+name = "objprint"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/81/b8/c10e96120f1585824a1992655334b49da3924edfb364e84a26cc0ecdb89b/objprint-0.3.0.tar.gz", hash = "sha256:b5d83f9d62db5b95353bb42959106e1cd43010dcaa3eed1ad8d7d0b2df9b2d5a", size = 47481, upload-time = "2024-11-09T00:05:16.73Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ec/af/572825252f16f36eeecbc8e3b721913d2640d69b984fdb8907aa8b4b0975/objprint-0.3.0-py3-none-any.whl", hash = "sha256:489083bfc8baf0526f8fd6af74673799511532636f0ce4141133255ded773405", size = 41619, upload-time = "2024-11-09T00:05:14.852Z" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.2"
 source = { registry = "https://pypi.org/simple" }
@@ -577,6 +586,7 @@ all = [
 [package.dev-dependencies]
 dev = [
     { name = "niquests" },
+    { name = "objprint" },
     { name = "pytest" },
 ]
 
@@ -593,5 +603,6 @@ provides-extras = ["all"]
 [package.metadata.requires-dev]
 dev = [
     { name = "niquests", specifier = ">=3.19.1" },
+    { name = "objprint", specifier = ">=0.3.0" },
     { name = "pytest", specifier = ">=9.1.0" },
 ]

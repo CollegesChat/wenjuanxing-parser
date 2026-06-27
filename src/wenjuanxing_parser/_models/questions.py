@@ -5,17 +5,26 @@ from typing import Annotated, Any, Literal, Mapping
 from pydantic import BeforeValidator, Field, model_validator
 from pydantic.dataclasses import dataclass
 
-from .base import QuestionType
+from .base import QuestionType, smart_repr
 
 
+@smart_repr
+@dataclass(frozen=True)
+class AdditionalInfo:
+    prompt: str | None = None
+    required: bool = False
+
+
+@smart_repr
 @dataclass(frozen=True)
 class Option:
     """选项的定义"""
 
     text: str  # 选项文本，如 "男"、"其他"
-    has_additional: bool = False  # 是否允许附加文本（如：其他____ 后面带有填空线）
+    additional_text: AdditionalInfo | bool = False
 
 
+@smart_repr
 @dataclass(frozen=True, kw_only=True)
 class Question:
     """题目定义的基类"""
@@ -27,30 +36,34 @@ class Question:
     prompt: str | None = None  # 填报提示/说明
 
 
+@smart_repr
 @dataclass(frozen=True, kw_only=True)
 class RadioQuestion(Question):
     options: list[Option]
     type: Literal["radio"] = "radio"
 
 
+@smart_repr
 @dataclass(frozen=True, kw_only=True)
 class CheckboxQuestion(Question):
     options: list[Option]
     type: Literal["checkbox"] = "checkbox"
 
 
+@smart_repr
 @dataclass(frozen=True, kw_only=True)
 class TextAreaQuestion(Question):
     type: Literal["text_area"] = "text_area"
     length_limit: int | None = None
 
 
+@smart_repr
 @dataclass(frozen=True, kw_only=True)
 class FillBlankQuestion(Question):
     blank_count: int = Field(
         2, ge=2, description="fill_blank 类型的多项填空题，空格数必须大于 1"
     )
-    regex: list[str] = Field(default_factory=list)
+    regex: list[str] | None = None
     type: Literal["fill_blank"] = "fill_blank"
 
     @model_validator(mode="after")

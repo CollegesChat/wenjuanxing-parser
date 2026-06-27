@@ -139,3 +139,14 @@ def main():
 
 if __name__ == "__main__":
     main()
+# import json
+
+# from pydantic import TypeAdapter
+
+# print(
+#     json.dumps(
+#         TypeAdapter(list[AnyQuestion]).json_schema(),
+#         indent=4,
+#         ensure_ascii=False,
+#     )
+# )

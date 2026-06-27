@@ -34,6 +34,7 @@ all = [
 [dependency-groups]
 dev = [
     "niquests>=3.19.1",
+    "objprint>=0.3.0",
     "pytest>=9.1.0",
 ]
 

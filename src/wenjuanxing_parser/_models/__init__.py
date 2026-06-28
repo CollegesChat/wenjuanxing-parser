@@ -24,7 +24,6 @@ from .questions import (
     FillBlankQuestion,
     Option,
     Question,
-    Questionnaire,
     RadioQuestion,
     TextAreaQuestion,
 )
@@ -46,7 +45,6 @@ __all__ = [
     "TextAreaQuestion",
     "FillBlankQuestion",
     "AnyQuestion",
-    "Questionnaire",
     # answers
     "ChosenOption",
     "RadioAnswer",

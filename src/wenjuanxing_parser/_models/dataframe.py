@@ -10,7 +10,7 @@ from pydantic import TypeAdapter
 from pydantic.dataclasses import dataclass
 
 from .base import IP, BasicData, PolarsValue
-from .questions import Question
+from .questions import AnyQuestion
 from .response import QuestionnaireResponse
 
 
@@ -22,7 +22,7 @@ class QuestionnaireData:
     def from_dataframe(
         cls,
         df: pl.DataFrame,
-        questions_map: Mapping[int, Question],
+        questions_map: Mapping[int, AnyQuestion],
         meta_extractor: Callable[[pl.DataFrame, Any], BasicData | None] | None = None,
         q_num_extractor: Callable[[str], int | None]
         | None = None,  # ✨ 新增：支持自定义题号提取器

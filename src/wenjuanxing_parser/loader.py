@@ -1,9 +1,11 @@
+from collections.abc import Mapping
+
 from pydantic import TypeAdapter
 
-from .models import AnyQuestion, Questionnaire
+from .models import AnyQuestion
 
 
-def load_questions_from_yaml(raw_data: list | dict) -> Questionnaire:
+def load_questions_from_yaml(raw_data: list | dict) -> Mapping[int, AnyQuestion]:
     """直接复用 models.py 中的 AnyQuestion，实现单点维护题型推导逻辑"""
     # 兼容直接传入字典（含 questions 键）或直接传入列表的格式
     raw_list = (
@@ -12,7 +14,7 @@ def load_questions_from_yaml(raw_data: list | dict) -> Questionnaire:
     if not isinstance(raw_list, list):
         return {}
 
-    questions_map: Questionnaire = {}
+    questions_map: Mapping[int, AnyQuestion] = {}
     question_adapter = TypeAdapter(AnyQuestion)
 
     for item in raw_list:

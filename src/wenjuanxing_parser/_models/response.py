@@ -1,12 +1,13 @@
 """问卷响应处理"""
 
 import re
+from collections.abc import Mapping
 
 from pydantic.dataclasses import dataclass
 
 from .answers import AnswerValue, ChosenOption, UserAnswer
 from .base import BasicData, PolarsValue, ResponseStatus
-from .questions import Questionnaire
+from .questions import AnyQuestion
 
 
 @dataclass(frozen=True)
@@ -19,7 +20,7 @@ class QuestionnaireResponse:
         cls,
         meta_data: BasicData | None,
         row_answers_dict: dict[int, list[PolarsValue] | PolarsValue],
-        questions_map: Questionnaire,
+        questions_map: Mapping[int, AnyQuestion],
     ) -> "QuestionnaireResponse":
         """【独立步骤 1】纯粹的数据解析层：将原始多维/扁平数据无痛解包为结构化对象，不含任何业务校验。"""
         answers: dict[int, UserAnswer] = {}
@@ -107,7 +108,9 @@ class QuestionnaireResponse:
 
         return cls(metadata=meta_data, answers=answers)
 
-    def validate(self, questions_map: Questionnaire) -> "QuestionnaireResponse":
+    def validate(
+        self, questions_map: Mapping[int, AnyQuestion]
+    ) -> "QuestionnaireResponse":
         """【独立步骤 2】纯粹的业务校验层：传入配置元数据，对当前已解析的答卷数据动态计算弱校验，返回带状态的新答卷。"""
         validated_answers: dict[int, UserAnswer] = {}
 
@@ -178,7 +181,7 @@ class QuestionnaireResponse:
         cls,
         meta_data: BasicData | None,
         row_answers_dict: dict[int, list[PolarsValue] | PolarsValue],
-        questions_map: Questionnaire,
+        questions_map: Mapping[int, AnyQuestion],
     ) -> "QuestionnaireResponse":
         """【向后兼容管线】顺序调用解析和验证，保证上游原有调用代码无需任何修改。"""
         response = cls.parse_from_dict(meta_data, row_answers_dict, questions_map)
@@ -188,14 +191,15 @@ class QuestionnaireResponse:
     def _split_outside_brackets(text: str) -> list[str]:
         """用正则表达式和占位符法：在 〖...〗 外按 ┋ 分割，保留内部 ┋"""
         brackets = []
+
         def save_bracket(m):
             brackets.append(m.group())
-            return f"§{len(brackets)-1}§"
-        
+            return f"§{len(brackets) - 1}§"
+
         # 保存所有 〖...〗，用占位符替换
-        temp = re.sub(r'〖[^〗]*〗', save_bracket, text)
+        temp = re.sub(r"〖[^〗]*〗", save_bracket, text)
         # 按 ┋ 分割
-        parts = temp.split('┋')
+        parts = temp.split("┋")
         # 恢复所有 〖...〗
         result = []
         for part in parts:
@@ -215,7 +219,6 @@ class QuestionnaireResponse:
             text = parts[0].strip()
             additional = parts[1].rstrip("〗").strip() if len(parts) > 1 else ""
             return ChosenOption(
-                text=text,
-                additional_text=additional if additional else None
+                text=text, additional_text=additional if additional else None
             )
         return ChosenOption(text=raw_str, additional_text=None)

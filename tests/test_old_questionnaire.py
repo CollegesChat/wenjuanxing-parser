@@ -1,5 +1,6 @@
 import logging
 import re
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 from itertools import islice
 from typing import Any
@@ -9,7 +10,7 @@ from niquests import get
 from yaml12 import parse_yaml
 
 from wenjuanxing_parser.loader import load_questions_from_yaml
-from wenjuanxing_parser.models import IP, BasicData, QuestionnaireData
+from wenjuanxing_parser.models import IP, AnyQuestion, BasicData, QuestionnaireData
 
 yaml = parse_yaml(
     get(
@@ -57,7 +58,7 @@ def test_old():
         match = re.match(r"^[qQ](\d+)", col_name)
         return int(match.group(1)) if match else None
 
-    questionnaire = load_questions_from_yaml(yaml)
+    questionnaire: Mapping[int, AnyQuestion] = load_questions_from_yaml(yaml)
     logging.info(
         QuestionnaireData.from_dataframe(
             df, questionnaire, meta_extractor, qnum_extractor

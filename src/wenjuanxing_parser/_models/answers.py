@@ -1,14 +1,30 @@
 """答案容器定义"""
 
-from pydantic.dataclasses import dataclass
+from typing import Any
 
-from .base import ResponseStatus, smart_repr
+from pydantic import BaseModel, ConfigDict
+
+from .base import ResponseStatus  # 保持原有的状态枚举导入
 
 
-@smart_repr
-@dataclass(frozen=True)
-class ChosenOption:
+class CleanReprModel(BaseModel):
+    """
+    提供类似于 smart_repr 过滤空值/默认值功能的基类
+    """
+
+    def __repr_args__(self) -> list[tuple[str | None, Any]]:
+        original_args = super().__repr_args__()
+        return [
+            (k, v)
+            for k, v in original_args
+            if v is not None and v is not False and v != ""
+        ]
+
+
+class ChosenOption(CleanReprModel):
     """存放选中选项及其附带文本的容器"""
+
+    model_config = ConfigDict(frozen=True)
 
     text: str
     additional_text: str | None = None
@@ -31,13 +47,13 @@ type AnswerValue = (
 )
 
 
-@smart_repr
-@dataclass(frozen=True)
-class UserAnswer:
+class UserAnswer(CleanReprModel):
     """
     带弱校验标记的答案容器。
     清洗层可以通过 if not answer.is_valid 快速定位并处理脏数据。
     """
+
+    model_config = ConfigDict(frozen=True)
 
     value: AnswerValue
     is_valid: bool = True

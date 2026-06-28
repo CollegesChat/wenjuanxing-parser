@@ -6,6 +6,7 @@ import polars as pl
 from yaml12 import parse_yaml
 
 from wenjuanxing_parser import load_questions_from_yaml
+from wenjuanxing_parser._models.questions import CustomSchemaGenerator
 
 from .models import (
     AnyQuestion,
@@ -138,15 +139,17 @@ def main():
 
 
 if __name__ == "__main__":
+    import json
+
+    from pydantic import TypeAdapter
+
+    print(
+        json.dumps(
+            TypeAdapter(list[AnyQuestion]).json_schema(
+                schema_generator=CustomSchemaGenerator
+            ),
+            indent=4,
+            ensure_ascii=False,
+        )
+    )
     main()
-# import json
-
-# from pydantic import TypeAdapter
-
-# print(
-#     json.dumps(
-#         TypeAdapter(list[AnyQuestion]).json_schema(),
-#         indent=4,
-#         ensure_ascii=False,
-#     )
-# )

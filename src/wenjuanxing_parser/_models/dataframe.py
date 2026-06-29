@@ -190,3 +190,10 @@ class QuestionnaireData:
 
     def __len__(self) -> int:
         return self._height
+
+    def __getitem__(self, idx: int) -> QuestionnaireResponse:
+        if idx < 0:
+            idx += self._height
+        if not 0 <= idx < self._height:
+            raise IndexError(idx)
+        return _parse_row(self._ctx_id, idx)

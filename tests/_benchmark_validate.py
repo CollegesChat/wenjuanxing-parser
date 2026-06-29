@@ -127,7 +127,9 @@ def benchmark_data():
 def test_benchmark_validate_on(benchmark_data):
     df, questions_map = benchmark_data
     start = time.perf_counter()
-    QuestionnaireData.from_dataframe(df, questions_map, validate=True)
+    survey = QuestionnaireData.from_dataframe(df, questions_map, validate=True)
+    for _ in survey:
+        pass
     elapsed = time.perf_counter() - start
     print(f"\n[validate=True ] {elapsed:.4f}s  ({ROW_COUNT} rows)")
 
@@ -135,6 +137,8 @@ def test_benchmark_validate_on(benchmark_data):
 def test_benchmark_validate_off(benchmark_data):
     df, questions_map = benchmark_data
     start = time.perf_counter()
-    QuestionnaireData.from_dataframe(df, questions_map, validate=False)
+    survey = QuestionnaireData.from_dataframe(df, questions_map, validate=False)
+    for _ in survey:
+        pass
     elapsed = time.perf_counter() - start
     print(f"\n[validate=False] {elapsed:.4f}s  ({ROW_COUNT} rows)")

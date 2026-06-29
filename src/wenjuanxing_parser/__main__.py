@@ -1,5 +1,6 @@
 import argparse
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 import polars as pl
@@ -101,27 +102,26 @@ def main():
         questions_map = load_questions(config_path)
         df = load_dataframe(data_path)
 
-        # 2. 灌入先前写好的矩阵解析管线（包含弱校验逻辑）
+        # 2. 灌入懒加载解析管线，单次遍历按题号聚合
         survey_data = QuestionnaireData.from_dataframe(df, questions_map)
 
-        # 3. 横向聚合：按「题号」重新洗牌数据，组装目标文字格式
-        output_lines = []
-        for q_num, question in sorted(questions_map.items()):
-            q_answers = []
-            for response in survey_data.data:
-                assert response.metadata is not None
-                user_id = response.metadata.num
+        question_buckets: dict[int, list[str]] = defaultdict(list)
+        for response in survey_data:
+            assert response.metadata is not None
+            user_id = response.metadata.num
+            for q_num in questions_map:
                 ans_obj = response.answers.get(q_num)
-
                 if ans_obj:
                     text_str = format_value(ans_obj.value).strip()
                     if text_str:
-                        q_answers.append(f"A{user_id}: {text_str}")
+                        question_buckets[q_num].append(f"A{user_id}: {text_str}")
 
-            # 当这道题确实有人回答时，才输出题干与答案清单
-            if q_answers:
+        # 3. 按题号组装输出
+        output_lines = []
+        for q_num, question in sorted(questions_map.items()):
+            if question_buckets[q_num]:
                 output_lines.append(f"Q: {question.title}")
-                output_lines.extend(q_answers)
+                output_lines.extend(question_buckets[q_num])
 
         # 4. 输出结果
         final_text = "\n".join(output_lines)

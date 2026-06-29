@@ -34,9 +34,9 @@ def test_parser_flow(tmp_path: Path):
     survey_data = QuestionnaireData.from_dataframe(df, questions_map)
 
     # 4. 断言（Assert）结果是否正确
-    assert len(survey_data.data) == 1
+    assert len(survey_data) == 1
 
-    first_response = survey_data.data[0]
+    first_response = next(iter(survey_data))
     assert first_response.metadata is not None
     assert first_response.metadata.num == 1
     assert first_response.metadata.ip.location == "本地"

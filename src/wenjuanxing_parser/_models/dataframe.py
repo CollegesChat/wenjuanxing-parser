@@ -3,6 +3,7 @@
 import math
 import os
 import re
+import weakref
 from collections.abc import Callable, Iterator
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
@@ -164,8 +165,9 @@ class QuestionnaireData:
             "df_ref": df_cleaned_rows,
             "validate": validate,
         }
-
-        return cls(_height=df_cleaned_rows.height, _ctx_id=ctx_id)
+        instance = cls(_height=df_cleaned_rows.height, _ctx_id=ctx_id)
+        weakref.finalize(instance, _ctx_registry.pop, ctx_id, None)
+        return instance
 
     def __iter__(self) -> Iterator[QuestionnaireResponse]:
         threshold = (os.cpu_count() or 4) * 2000

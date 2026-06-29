@@ -26,6 +26,7 @@ class QuestionnaireData:
         meta_extractor: Callable[[pl.DataFrame, Any], BasicData | None] | None = None,
         q_num_extractor: Callable[[str], int | None]
         | None = None,  # ✨ 新增：支持自定义题号提取器
+        validate: bool = False,
     ) -> Self:
         """从原生 Polars DataFrame 解析完整的问卷数据集"""
         # 防止篡改原数据，清洗前拷贝 (Polars 使用 clone)
@@ -90,17 +91,25 @@ class QuestionnaireData:
                 else:
                     row_answers_dict[q_num] = [col_dict[idx] for col_dict in col_dicts]
 
-            # 转换为结构化实体
-            response_obj = QuestionnaireResponse.from_clean_dict(
-                meta_data=meta_data,
-                row_answers_dict=row_answers_dict,
-                questions_map=questions_map,
-            )
+            if validate:
+                response_obj = QuestionnaireResponse.from_clean_dict(
+                    meta_data=meta_data,
+                    row_answers_dict=row_answers_dict,
+                    questions_map=questions_map,
+                )
+            else:
+                response_obj = QuestionnaireResponse.parse_from_dict(
+                    meta_data=meta_data,
+                    row_answers_dict=row_answers_dict,
+                    questions_map=questions_map,
+                )
             parsed_responses.append(response_obj)
 
-        # 5. 利用 TypeAdapter 展开结构化校验
-        adapter = TypeAdapter(cls)
-        return adapter.validate_python({"data": parsed_responses})
+        # 5. 仅在显式要求时利用 TypeAdapter 展开结构化校验
+        if validate:
+            adapter = TypeAdapter(cls)
+            return adapter.validate_python({"data": parsed_responses})
+        return cls(data=parsed_responses)
 
     @staticmethod
     def _build_basic_data_from_matrix(matrix_dict: dict, idx: int) -> BasicData:

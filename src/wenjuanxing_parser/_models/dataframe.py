@@ -15,7 +15,8 @@ from .base import IP, BasicData, PolarsValue
 from .questions import AnyQuestion
 from .response import QuestionnaireResponse
 
-_parse_ctx: dict[str, Any] = {}
+_ctx_registry: dict[int, dict[str, Any]] = {}
+_next_ctx_id: int = 0
 
 
 def _build_basic_data(matrix_dict: dict, idx: int) -> BasicData:
@@ -63,8 +64,8 @@ def _build_basic_data(matrix_dict: dict, idx: int) -> BasicData:
     )
 
 
-def _parse_row(idx: int) -> QuestionnaireResponse:
-    ctx = _parse_ctx
+def _parse_row(ctx_id: int, idx: int) -> QuestionnaireResponse:
+    ctx = _ctx_registry[ctx_id]
     matrix_dict = ctx["matrix_dict"]
     q_resolved_groups = ctx["q_resolved_groups"]
     questions_map = ctx["questions_map"]
@@ -97,14 +98,15 @@ def _parse_row(idx: int) -> QuestionnaireResponse:
     )
 
 
-def _worker_parse_chunk(chunk: list[int]) -> list[QuestionnaireResponse]:
-    return [_parse_row(idx) for idx in chunk]
+def _worker_parse_chunk(args: tuple[int, list[int]]) -> list[QuestionnaireResponse]:
+    ctx_id, chunk = args
+    return [_parse_row(ctx_id, idx) for idx in chunk]
 
 
 @dataclass(frozen=True)
 class QuestionnaireData:
     _height: int = field(repr=False)
-    _validate: bool = field(repr=False)
+    _ctx_id: int = field(repr=False)
 
     @classmethod
     def from_dataframe(
@@ -115,6 +117,7 @@ class QuestionnaireData:
         q_num_extractor: Callable[[str], int | None] | None = None,
         validate: bool = False,
     ) -> Self:
+        global _next_ctx_id
         df_cleaned_rows = df.clone()
 
         def default_q_num_extractor(col_name: str) -> int | None:
@@ -151,23 +154,24 @@ class QuestionnaireData:
             for q_num, columns in q_col_groups.items()
         }
 
-        _parse_ctx.clear()
-        _parse_ctx.update({
+        ctx_id = _next_ctx_id
+        _next_ctx_id += 1
+        _ctx_registry[ctx_id] = {
             "matrix_dict": matrix_dict,
             "q_resolved_groups": q_resolved_groups,
             "questions_map": questions_map,
             "meta_extractor": meta_extractor,
             "df_ref": df_cleaned_rows,
             "validate": validate,
-        })
+        }
 
-        return cls(_height=df_cleaned_rows.height, _validate=validate)
+        return cls(_height=df_cleaned_rows.height, _ctx_id=ctx_id)
 
     def __iter__(self) -> Iterator[QuestionnaireResponse]:
         threshold = (os.cpu_count() or 4) * 2000
         if self._height < threshold:
             for idx in range(self._height):
-                yield _parse_row(idx)
+                yield _parse_row(self._ctx_id, idx)
         else:
             n_workers = os.cpu_count() or 4
             chunk_size = math.ceil(self._height / n_workers)
@@ -176,7 +180,10 @@ class QuestionnaireData:
                 for s in range(0, self._height, chunk_size)
             ]
             with ProcessPoolExecutor(max_workers=n_workers) as pool:
-                for chunk_result in pool.map(_worker_parse_chunk, chunks):
+                for chunk_result in pool.map(
+                    _worker_parse_chunk,
+                    [(self._ctx_id, c) for c in chunks],
+                ):
                     yield from chunk_result
 
     def __len__(self) -> int:

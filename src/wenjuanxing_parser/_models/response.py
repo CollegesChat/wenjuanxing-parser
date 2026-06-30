@@ -87,7 +87,7 @@ class QuestionnaireResponse:
                     default_texts = getattr(question, "default_blank_text", None)
                     if default_texts:
                         for i in range(len(parts)):
-                            if isinstance(parts[i], str) and parts[i].strip() == "" and i < len(default_texts):
+                            if isinstance(parts[i], str) and parts[i].strip() == "" and i in default_texts:
                                 parts[i] = default_texts[i]
 
                     if len(parts) < blank_count:

@@ -50,13 +50,13 @@ type AnswerValue = (
 class UserAnswer(CleanReprModel):
     """
     带弱校验标记的答案容器。
-    清洗层可以通过 if not answer.is_valid 快速定位并处理脏数据。
+    清洗层可以通过 if answer.valid is False 快速定位并处理脏数据。
     """
 
     model_config = ConfigDict(frozen=True)
 
     value: AnswerValue
-    is_valid: bool = True
+    valid: bool | None = None
     error_msg: str | None = (
         None  # 用于记录具体的未通过原因（如：未匹配正则、必填项留空等）
     )

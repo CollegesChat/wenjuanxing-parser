@@ -15,7 +15,6 @@ def test_parser_flow(tmp_path: Path):
     - num: 2
       title: 你的学校是全称是？
       required: true
-      regex: "^.{4,12}$"
     """
     yaml_file = tmp_path / "test_config.yaml"
     yaml_file.write_text(yaml_content, encoding="utf-8")
@@ -31,7 +30,7 @@ def test_parser_flow(tmp_path: Path):
     # 3. 执行你的程式码逻辑
     questions_map = load_questions_from_yaml(parse_yaml(yaml_file.read_text()))  # type: ignore
     df = pl.read_csv(csv_file)
-    survey_data = QuestionnaireData.from_dataframe(df, questions_map)
+    survey_data = QuestionnaireData.from_dataframe(df, questions_map, validate=True)
 
     # 4. 断言（Assert）结果是否正确
     assert len(survey_data) == 1
@@ -44,4 +43,4 @@ def test_parser_flow(tmp_path: Path):
     # 检查题目答案与校验状态
     answer_obj = first_response.answers[2]
     assert answer_obj.value == "北京大學"
-    assert answer_obj.is_valid is True
+    assert answer_obj.valid is True

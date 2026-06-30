@@ -122,31 +122,31 @@ class QuestionnaireResponse:
                 continue
 
             parsed_value = user_ans.value
-            is_valid = True
+            valid: bool | None = None
             error_msg = None
 
             # 校验规则 1：必填项检查 (Required Constraint)
             if question.required:
                 if parsed_value is None:
-                    is_valid = False
+                    valid = False
                     error_msg = "该题为必填项，但受访者未填写。"
                 elif parsed_value in (ResponseStatus.EMPTY, ResponseStatus.SKIPPED):
-                    is_valid = False
+                    valid = False
                     error_msg = f"该题为必填项，但当前处于特殊状态: {parsed_value}。"
                 elif isinstance(parsed_value, list) and len(parsed_value) == 0:
-                    is_valid = False
+                    valid = False
                     error_msg = "该多选题为必选项，但未勾选任何选项。"
                 elif isinstance(parsed_value, list):
                     if any(
                         v == "" or v in (ResponseStatus.EMPTY, ResponseStatus.SKIPPED)
                         for v in parsed_value
                     ):
-                        is_valid = False
+                        valid = False
                         error_msg = "该填空题为必填项，但存在未完成填写的空格。"
 
             # 校验规则 2：正则表达式匹配检查 (Regex Constraint) -> 仅作用于填空题
             if (
-                is_valid
+                valid is not False
                 and question.type == "fill_blank"
                 and isinstance(parsed_value, list)
             ):
@@ -159,18 +159,21 @@ class QuestionnaireResponse:
                             or part == ""
                         ):
                             if question.required:
-                                is_valid = False
+                                valid = False
                                 error_msg = f"第 {i + 1} 个空格未填写。"
                                 break
                             continue
 
                         if not re.match(rule, str(part)):
-                            is_valid = False
+                            valid = False
                             error_msg = f"第 {i + 1} 个空格填写的文本 '{part}' 未通过格式校验规则。"
                             break
 
+            if valid is None:
+                valid = True
+
             validated_answers[q_num] = UserAnswer(
-                value=parsed_value, is_valid=is_valid, error_msg=error_msg
+                value=parsed_value, valid=valid, error_msg=error_msg
             )
 
         # 返回打上验证标记的新对象实例

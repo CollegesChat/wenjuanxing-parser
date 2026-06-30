@@ -51,50 +51,54 @@ class CleanReprModel(BaseModel):
 
 class AdditionalInfo(CleanReprModel):
     # 🌟 删除了 model_config，自动完美继承父类的 extra="forbid" 和 frozen=True
-    prompt: str | None = None
-    required: bool = False
+    prompt: str | None = Field(None, title="提示文本")
+    required: bool = Field(False, title="是否必填")
 
 
 class Option(CleanReprModel):
     """选项的定义"""
 
     # 🌟 删除了 model_config，确保选项深处的未知字段也能被 forbid 锁死
-    text: str  # 选项文本，如 "男"、"其他"
-    additional_text: AdditionalInfo | bool = False
+    text: str = Field(..., title="选项文本")  # 选项文本，如 "男"、"其他"
+    additional_text: AdditionalInfo | bool = Field(False, title="附加文本")
 
 
 class Question(CleanReprModel):
     """题目定义的基类"""
 
-    num: int  # 题号
-    title: str = ""  # 题干
-    type: QuestionType = "radio"
-    required: bool = True
-    prompt: str | None = None  # 填报提示/说明
+    num: int = Field(..., title="题号")  # 题号
+    title: str = Field("", title="题干")  # 题干
+    type: QuestionType = Field("radio", title="题型")
+    required: bool = Field(True, title="是否必填")
+    prompt: str | None = Field(None, title="填报提示")  # 填报提示/说明
 
 
 class RadioQuestion(Question):
-    options: list[Option]
+    options: list[Option] = Field(..., title="选项列表")
     type: Literal["radio"] = "radio"
 
 
 class CheckboxQuestion(Question):
-    options: list[Option]
+    options: list[Option] = Field(..., title="选项列表")
     type: Literal["checkbox"] = "checkbox"
 
 
 class TextAreaQuestion(Question):
     type: Literal["text_area"] = "text_area"
-    length_limit: int | None = None
+    length_limit: int | None = Field(None, title="字数限制")
 
 
 class FillBlankQuestion(Question):
     blank_count: int = Field(
-        2, ge=2, description="fill_blank 类型的多项填空题，空格数必须大于 1"
+        2, ge=2, title="空格数量", description="fill_blank 类型的多项填空题，空格数必须大于 1"
     )
-    regex: list[str] | None = None
+    regex: list[str] | None = Field(None, title="正则校验规则")
     type: Literal["fill_blank"] = "fill_blank"
-    default_blank_text: dict[int, str] | list[str] | None = None
+    default_blank_text: dict[int, str] | list[str] | None = Field(
+        None,
+        title="默认填充文本",
+        description="各空格的默认填充文本。dict 格式：键为空格序号（从1起），值为默认文本；list 格式：按顺序对应每个空格，长度须等于 blank_count。",
+    )
 
     @model_validator(mode="after")
     def validate_fill_blank_constraints(self):
@@ -114,14 +118,14 @@ class FillBlankQuestion(Question):
                 object.__setattr__(
                     self,
                     "default_blank_text",
-                    {i: t for i, t in enumerate(self.default_blank_text) if t},
+                    {i + 1: t for i, t in enumerate(self.default_blank_text) if t},
                 )
             else:
                 for key in self.default_blank_text:
-                    if not (0 <= key < self.blank_count):
+                    if not (1 <= key <= self.blank_count):
                         raise ValueError(
                             f"[题号 {self.num}] 校验失败: default_blank_text 的键 {key} "
-                            f"超出范围 [0, {self.blank_count})！"
+                            f"超出范围 [1, {self.blank_count}]！"
                         )
         return self
 

@@ -66,11 +66,11 @@ ROW_COUNT = 20_000
 @pytest.fixture(scope="module")
 def benchmark_data():
     yaml_obj = parse_yaml(YAML_CONTENT)
+    assert isinstance(yaml_obj, dict)
     questions_map = load_questions_from_yaml(yaml_obj)
 
     genders = ["男", "女", "其他〖非二元性别〗"]
     grades = ["大一", "大二", "大三", "大四", "研究生〖硕士〗", "研究生〖博士〗"]
-    sports_pool = ["篮球", "足球", "跑步", "游泳", "其他〖攀岩〗", "其他〖滑板〗"]
 
     rows = []
     for i in range(1, ROW_COUNT + 1):

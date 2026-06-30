@@ -169,6 +169,9 @@ class QuestionnaireData:
         weakref.finalize(instance, _ctx_registry.pop, ctx_id, None)
         return instance
 
+    def __repr__(self) -> str:
+        return f"QuestionnaireData(rows={self._height})"
+
     def __iter__(self) -> Iterator[QuestionnaireResponse]:
         threshold = (os.cpu_count() or 4) * 2000
         if self._height < threshold:

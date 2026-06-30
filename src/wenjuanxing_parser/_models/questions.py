@@ -94,6 +94,7 @@ class FillBlankQuestion(Question):
     )
     regex: list[str] | None = None
     type: Literal["fill_blank"] = "fill_blank"
+    default_blank_text: list[str] | None = None
 
     @model_validator(mode="after")
     def validate_fill_blank_constraints(self):
@@ -103,6 +104,11 @@ class FillBlankQuestion(Question):
                 f"[题号 {self.num}] 校验失败: 该填空题声明了有 {self.blank_count} 个空格，"
                 f"但你却配置了 {len(self.regex)} 个正则表达式校验规则！"
             )
+        if self.default_blank_text and len(self.default_blank_text) != self.blank_count:
+            raise ValueError(
+                f"[题号 {self.num}] 校验失败: 该填空题声明了有 {self.blank_count} 个空格，"
+                f"但你却配置了 {len(self.default_blank_text)} 个默认文本！"
+            )
         return self
 
 
@@ -111,7 +117,7 @@ def _infer_question_type(v: Any) -> Any:
     if isinstance(v, dict):
         q_type = v.get("type")
         if q_type in (None, "text"):
-            if "blank_count" in v or isinstance(v.get("regex"), list):
+            if "blank_count" in v or isinstance(v.get("regex"), list) or isinstance(v.get("default_blank_text"), list):
                 v["type"] = "fill_blank"
             elif "options" in v:  # 只要有 options 字段就盲猜是选择题（默认radio）
                 v["type"] = "radio"

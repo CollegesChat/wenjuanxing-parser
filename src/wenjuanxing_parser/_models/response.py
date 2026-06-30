@@ -83,6 +83,13 @@ class QuestionnaireResponse:
                             else:
                                 parts.append(p)
 
+                    # 问卷星导出时通常已自动填入默认文本，此处兜底处理未填写的空格
+                    default_texts = getattr(question, "default_blank_text", None)
+                    if default_texts:
+                        for i in range(len(parts)):
+                            if isinstance(parts[i], str) and parts[i].strip() == "" and i < len(default_texts):
+                                parts[i] = default_texts[i]
+
                     if len(parts) < blank_count:
                         parts.extend([""] * (blank_count - len(parts)))
                     parsed_value = parts[:blank_count]

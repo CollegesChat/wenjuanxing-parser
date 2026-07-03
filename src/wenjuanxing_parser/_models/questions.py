@@ -68,6 +68,7 @@ class Option(CleanReprModel):
         if isinstance(other, str):
             return self.text == other
         from .answers import SelectedOption
+
         if isinstance(other, SelectedOption):
             return self.text == other.text
         return NotImplemented
@@ -103,7 +104,10 @@ class TextAreaQuestion(Question):
 
 class FillBlankQuestion(Question):
     blank_count: int = Field(
-        2, ge=2, title="空格数量", description="fill_blank 类型的多项填空题，空格数必须大于 1"
+        2,
+        ge=2,
+        title="空格数量",
+        description="fill_blank 类型的多项填空题，空格数必须大于 1",
     )
     regex: list[str] | None = Field(None, title="正则校验规则")
     type: Literal["fill_blank"] = "fill_blank"
@@ -148,7 +152,11 @@ def _infer_question_type(v: Any) -> Any:
     if isinstance(v, dict):
         q_type = v.get("type")
         if q_type in (None, "text"):
-            if "blank_count" in v or isinstance(v.get("regex"), list) or isinstance(v.get("default_blank_text"), (list, dict)):
+            if (
+                "blank_count" in v
+                or isinstance(v.get("regex"), list)
+                or isinstance(v.get("default_blank_text"), (list, dict))
+            ):
                 v["type"] = "fill_blank"
             elif "options" in v:  # 只要有 options 字段就盲猜是选择题（默认radio）
                 v["type"] = "radio"

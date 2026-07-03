@@ -10,9 +10,9 @@ from wenjuanxing_parser import load_questions_from_yaml
 
 from .models import (
     AnyQuestion,
-    SelectedOption,
     QuestionnaireData,
     ResponseStatus,
+    SelectedOption,
 )
 
 

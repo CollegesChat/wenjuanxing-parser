@@ -1,9 +1,13 @@
 """答案容器定义"""
-
 import warnings
 from typing import Any, overload
 
 from pydantic import BaseModel, ConfigDict
+
+try:
+    from typing import deprecated  # type: ignore
+except ImportError:
+    from typing_extensions import deprecated
 
 from .base import ResponseStatus
 
@@ -36,6 +40,7 @@ class SelectedOption(CleanReprModel):
         if isinstance(other, str):
             return self.text == other
         from .questions import Option
+
         if isinstance(other, Option):
             return self.text == other.text
         return NotImplemented
@@ -92,6 +97,7 @@ class UserAnswer(CleanReprModel):
     @overload
     def __contains__(self, item: SelectedOption) -> bool: ...
     @overload
+    @deprecated("传入 ResponseStatus 已废弃，使用 `ResponseStatus is answer` 代替")
     def __contains__(self, item: ResponseStatus) -> bool: ...
 
     def __contains__(self, item: object) -> bool:
@@ -118,7 +124,8 @@ class UserAnswer(CleanReprModel):
             return val.text == text
         if isinstance(val, list):
             return any(
-                (v.text if isinstance(v, SelectedOption) else v) == text
-                for v in val
+                (v.text if isinstance(v, SelectedOption) else v) == text for v in val
             )
         return False
+
+

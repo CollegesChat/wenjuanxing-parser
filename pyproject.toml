@@ -23,6 +23,7 @@ dependencies = [
     "fastexcel>=0.20.2",
     "polars>=1.42.0",
     "pydantic>=2.13.4",
+    "typing_extensions>=4.0.0; python_version < '3.13'"
 ]
 
 [project.optional-dependencies]

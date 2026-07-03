@@ -5,7 +5,7 @@ from collections.abc import Mapping
 
 from pydantic.dataclasses import dataclass
 
-from .answers import AnswerValue, ChosenOption, UserAnswer
+from .answers import AnswerValue, SelectedOption, UserAnswer
 from .base import BasicData, PolarsValue, ResponseStatus
 from .questions import AnyQuestion
 
@@ -222,13 +222,13 @@ class QuestionnaireResponse:
         return result
 
     @staticmethod
-    def _parse_single_option(raw_str: str) -> ChosenOption:
+    def _parse_single_option(raw_str: str) -> SelectedOption:
         """解析问卷星导出的带附加文本的选项 (如: 选项名〖附加文本〗)"""
         if "〖" in raw_str:
             parts = raw_str.split("〖", 1)
             text = parts[0].strip()
             additional = parts[1].rstrip("〗").strip() if len(parts) > 1 else ""
-            return ChosenOption(
+            return SelectedOption(
                 text=text, additional_text=additional if additional else None
             )
-        return ChosenOption(text=raw_str, additional_text=None)
+        return SelectedOption(text=raw_str, additional_text=None)

@@ -24,6 +24,7 @@ from ._models import (
     RadioAnswer,
     RadioQuestion,
     ResponseStatus,
+    SelectedOption,
     TextAreaAnswer,
     TextAreaQuestion,
     UserAnswer,
@@ -46,6 +47,7 @@ __all__ = [
     "FillBlankQuestion",
     "AnyQuestion",
     # Answer types
+    "SelectedOption",
     "ChosenOption",
     "RadioAnswer",
     "CheckboxAnswer",

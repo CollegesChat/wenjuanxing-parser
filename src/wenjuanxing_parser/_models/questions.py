@@ -62,6 +62,19 @@ class Option(CleanReprModel):
     text: str = Field(..., title="选项文本")  # 选项文本，如 "男"、"其他"
     additional_text: AdditionalInfo | bool = Field(False, title="附加文本")
 
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Option):
+            return self.text == other.text
+        if isinstance(other, str):
+            return self.text == other
+        from .answers import SelectedOption
+        if isinstance(other, SelectedOption):
+            return self.text == other.text
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash(self.text)
+
 
 class Question(CleanReprModel):
     """题目定义的基类"""

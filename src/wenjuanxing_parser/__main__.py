@@ -10,7 +10,7 @@ from wenjuanxing_parser import load_questions_from_yaml
 
 from .models import (
     AnyQuestion,
-    ChosenOption,
+    SelectedOption,
     QuestionnaireData,
     ResponseStatus,
 )
@@ -40,7 +40,7 @@ def format_value(val) -> str:
     if val is None or isinstance(val, ResponseStatus):
         return ""
 
-    if isinstance(val, ChosenOption):
+    if isinstance(val, SelectedOption):
         if val.additional_text:
             sep = "" if val.additional_text[0] in "，。、；：,.;:" else "，"
             return f"{val.text}{sep}{val.additional_text}"

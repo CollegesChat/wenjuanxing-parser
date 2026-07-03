@@ -6,6 +6,7 @@ from .answers import (
     ChosenOption,
     FillBlankAnswer,
     RadioAnswer,
+    SelectedOption,
     TextAreaAnswer,
     UserAnswer,
 )
@@ -46,6 +47,7 @@ __all__ = [
     "FillBlankQuestion",
     "AnyQuestion",
     # answers
+    "SelectedOption",
     "ChosenOption",
     "RadioAnswer",
     "CheckboxAnswer",

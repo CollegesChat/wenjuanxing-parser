@@ -111,10 +111,10 @@ class FillBlankQuestion(Question):
     )
     regex: list[str] | None = Field(None, title="正则校验规则")
     type: Literal["fill_blank"] = "fill_blank"
-    default_blank_text: dict[int, str] | list[str] | None = Field(
+    default_blank_text: dict[int, str] | list[str | dict[int, str]] | None = Field(
         None,
         title="默认填充文本",
-        description="各空格的默认填充文本。dict 格式：键为空格序号（从1起），值为默认文本；list 格式：按顺序对应每个空格，长度须等于 blank_count。",
+        description="各空格的默认填充文本。dict 格式：键为空格序号（从1起），值为默认文本；list 格式支持混合：str 按顺序填充，dict 显式指定位置（如 [\"北京\", {5: \"广州\"}, \"上海\"]）。",
     )
 
     @model_validator(mode="after")
@@ -127,16 +127,35 @@ class FillBlankQuestion(Question):
             )
         if self.default_blank_text is not None:
             if isinstance(self.default_blank_text, list):
-                if len(self.default_blank_text) != self.blank_count:
-                    raise ValueError(
-                        f"[题号 {self.num}] 校验失败: 该填空题声明了有 {self.blank_count} 个空格，"
-                        f"但你却配置了 {len(self.default_blank_text)} 个默认文本！"
-                    )
-                object.__setattr__(
-                    self,
-                    "default_blank_text",
-                    {i + 1: t for i, t in enumerate(self.default_blank_text) if t},
-                )
+                # 混合格式：str 按顺序填充，dict 显式指定位置
+                result: dict[int, str] = {}
+                seq_pos = 1
+                for item in self.default_blank_text:
+                    if isinstance(item, str):
+                        if item:
+                            while seq_pos in result or seq_pos > self.blank_count:
+                                seq_pos += 1
+                            if seq_pos > self.blank_count:
+                                raise ValueError(
+                                    f"[题号 {self.num}] 校验失败: 默认文本数量超过空格数 {self.blank_count}！"
+                                )
+                            result[seq_pos] = item
+                            seq_pos += 1
+                    elif isinstance(item, dict):
+                        if not item:
+                            continue
+                        for key, val in item.items():
+                            if not (1 <= key <= self.blank_count):
+                                raise ValueError(
+                                    f"[题号 {self.num}] 校验失败: default_blank_text 的键 {key} "
+                                    f"超出范围 [1, {self.blank_count}]！"
+                                )
+                            result[key] = val
+                        # 更新 seq_pos 为最大键之后，后续 str 从这里继续
+                        max_key = max(item.keys())
+                        if max_key + 1 > seq_pos:
+                            seq_pos = max_key + 1
+                object.__setattr__(self, "default_blank_text", result)
             else:
                 for key in self.default_blank_text:
                     if not (1 <= key <= self.blank_count):

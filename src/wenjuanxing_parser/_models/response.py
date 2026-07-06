@@ -161,10 +161,10 @@ class QuestionnaireResponse:
                 and question.type == "fill_blank"
                 and isinstance(parsed_value, list)
             ):
-                regex_rules = getattr(question, "regex", [])
+                regex_rules = getattr(question, "regex", None) or {}
                 for i, part in enumerate(parsed_value):
-                    if i < len(regex_rules):
-                        rule = regex_rules[i]
+                    if (i + 1) in regex_rules:
+                        rule = regex_rules[i + 1]
                         if (
                             part in (ResponseStatus.EMPTY, ResponseStatus.SKIPPED)
                             or part == ""

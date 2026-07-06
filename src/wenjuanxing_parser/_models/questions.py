@@ -7,6 +7,9 @@ from pydantic.json_schema import GenerateJsonSchema
 
 from .base import QuestionType  # 保持原有的基础枚举/类型导入
 
+# 填空题空格配置类型：支持 dict 显式指定位置，或 list 混合（str 按顺序，dict 显式指定）
+type BlankConfig = dict[int, str] | list[str | dict[int, str]] | None
+
 
 class CustomSchemaGenerator(GenerateJsonSchema):
     """
@@ -109,53 +112,77 @@ class FillBlankQuestion(Question):
         title="空格数量",
         description="fill_blank 类型的多项填空题，空格数必须大于 1",
     )
-    regex: list[str] | None = Field(None, title="正则校验规则")
+    regex: BlankConfig = Field(
+        None,
+        title="正则校验规则",
+        description="各空格的正则校验规则。支持混合格式：str 按顺序对应，dict 显式指定位置。少于 blank_count 时，未指定的空格不校验；多于则报错。",
+    )
     type: Literal["fill_blank"] = "fill_blank"
-    default_blank_text: dict[int, str] | list[str | dict[int, str]] | None = Field(
+    default_blank_text: BlankConfig = Field(
         None,
         title="默认填充文本",
         description="各空格的默认填充文本。dict 格式：键为空格序号（从1起），值为默认文本；list 格式支持混合：str 按顺序填充，dict 显式指定位置（如 [\"北京\", {5: \"广州\"}, \"上海\"]）。",
     )
 
+    @staticmethod
+    def _parse_mixed_list(
+        items: list, blank_count: int, field_name: str, num: int, strict_length: bool = False
+    ) -> dict[int, str]:
+        """解析混合格式 list，返回 dict[int, str]。
+
+        Args:
+            strict_length: 若为 True，list 长度必须 <= blank_count（用于 default_blank_text）
+                          若为 False，允许少于 blank_count（用于 regex）
+        """
+        result: dict[int, str] = {}
+        seq_pos = 1
+        for item in items:
+            if isinstance(item, str):
+                if item:
+                    while seq_pos in result or seq_pos > blank_count:
+                        seq_pos += 1
+                    if seq_pos > blank_count:
+                        raise ValueError(
+                            f"[题号 {num}] 校验失败: {field_name} 数量超过空格数 {blank_count}！"
+                        )
+                    result[seq_pos] = item
+                    seq_pos += 1
+            elif isinstance(item, dict):
+                if not item:
+                    continue
+                for key, val in item.items():
+                    if not (1 <= key <= blank_count):
+                        raise ValueError(
+                            f"[题号 {num}] 校验失败: {field_name} 的键 {key} "
+                            f"超出范围 [1, {blank_count}]！"
+                        )
+                    result[key] = val
+                max_key = max(item.keys())
+                if max_key + 1 > seq_pos:
+                    seq_pos = max_key + 1
+        return result
+
     @model_validator(mode="after")
     def validate_fill_blank_constraints(self):
-        # 校验正则规则数量与格子数是否匹配
-        if self.regex and len(self.regex) != self.blank_count:
-            raise ValueError(
-                f"[题号 {self.num}] 校验失败: 该填空题声明了有 {self.blank_count} 个空格，"
-                f"但你却配置了 {len(self.regex)} 个正则表达式校验规则！"
-            )
+        if self.regex is not None:
+            if isinstance(self.regex, list):
+                object.__setattr__(
+                    self, "regex",
+                    self._parse_mixed_list(self.regex, self.blank_count, "regex", self.num)
+                )
+            else:
+                for key in self.regex:
+                    if not (1 <= key <= self.blank_count):
+                        raise ValueError(
+                            f"[题号 {self.num}] 校验失败: regex 的键 {key} "
+                            f"超出范围 [1, {self.blank_count}]！"
+                        )
         if self.default_blank_text is not None:
             if isinstance(self.default_blank_text, list):
-                # 混合格式：str 按顺序填充，dict 显式指定位置
-                result: dict[int, str] = {}
-                seq_pos = 1
-                for item in self.default_blank_text:
-                    if isinstance(item, str):
-                        if item:
-                            while seq_pos in result or seq_pos > self.blank_count:
-                                seq_pos += 1
-                            if seq_pos > self.blank_count:
-                                raise ValueError(
-                                    f"[题号 {self.num}] 校验失败: 默认文本数量超过空格数 {self.blank_count}！"
-                                )
-                            result[seq_pos] = item
-                            seq_pos += 1
-                    elif isinstance(item, dict):
-                        if not item:
-                            continue
-                        for key, val in item.items():
-                            if not (1 <= key <= self.blank_count):
-                                raise ValueError(
-                                    f"[题号 {self.num}] 校验失败: default_blank_text 的键 {key} "
-                                    f"超出范围 [1, {self.blank_count}]！"
-                                )
-                            result[key] = val
-                        # 更新 seq_pos 为最大键之后，后续 str 从这里继续
-                        max_key = max(item.keys())
-                        if max_key + 1 > seq_pos:
-                            seq_pos = max_key + 1
-                object.__setattr__(self, "default_blank_text", result)
+                object.__setattr__(
+                    self, "default_blank_text",
+                    self._parse_mixed_list(self.default_blank_text, self.blank_count, "默认文本", self.num)
+                )
             else:
                 for key in self.default_blank_text:
                     if not (1 <= key <= self.blank_count):

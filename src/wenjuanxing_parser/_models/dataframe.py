@@ -1,11 +1,8 @@
 """从数据框懒加载解析问卷数据"""
 
-import math
-import os
 import re
 import weakref
 from collections.abc import Callable, Iterator
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any, Mapping, Self
@@ -70,11 +67,11 @@ def _parse_row(ctx_id: int, idx: int) -> QuestionnaireResponse:
     matrix_dict = ctx["matrix_dict"]
     q_resolved_groups = ctx["q_resolved_groups"]
     questions_map = ctx["questions_map"]
-    meta_extractor = ctx["meta_extractor"]
-    df_ref = ctx["df_ref"]
-    validate = ctx["validate"]
+    meta_extractor = ctx.get("meta_extractor")
+    validate = ctx.get("validate", False)
 
     if meta_extractor is not None:
+        df_ref = ctx["df_ref"]
         meta_data = meta_extractor(df_ref, idx)
     else:
         meta_data = _build_basic_data(matrix_dict, idx)
@@ -97,18 +94,6 @@ def _parse_row(ctx_id: int, idx: int) -> QuestionnaireResponse:
         row_answers_dict=row_answers_dict,
         questions_map=questions_map,
     )
-
-
-def _worker_parse_chunk(args: tuple[int, list[int]]) -> list[QuestionnaireResponse]:
-    ctx_id, chunk = args
-    return [_parse_row(ctx_id, idx) for idx in chunk]
-
-
-def _init_worker(ctx_data: dict[str, Any]) -> None:
-    """在每个 worker 进程启动时初始化 _ctx_registry"""
-    global _ctx_registry, _next_ctx_id
-    _ctx_registry[0] = ctx_data
-    _next_ctx_id = 1
 
 
 @dataclass(frozen=True)
@@ -180,28 +165,8 @@ class QuestionnaireData:
         return f"QuestionnaireData(rows={self._height})"
 
     def __iter__(self) -> Iterator[QuestionnaireResponse]:
-        threshold = (os.cpu_count() or 4) * 2000
-        if self._height < threshold:
-            for idx in range(self._height):
-                yield _parse_row(self._ctx_id, idx)
-        else:
-            n_workers = os.cpu_count() or 4
-            chunk_size = math.ceil(self._height / n_workers)
-            chunks = [
-                list(range(s, min(s + chunk_size, self._height)))
-                for s in range(0, self._height, chunk_size)
-            ]
-            ctx_data = _ctx_registry[self._ctx_id]
-            with ProcessPoolExecutor(
-                max_workers=n_workers,
-                initializer=_init_worker,
-                initargs=(ctx_data,),
-            ) as pool:
-                for chunk_result in pool.map(
-                    _worker_parse_chunk,
-                    [(0, c) for c in chunks],
-                ):
-                    yield from chunk_result
+        for idx in range(self._height):
+            yield _parse_row(self._ctx_id, idx)
 
     def __len__(self) -> int:
         return self._height

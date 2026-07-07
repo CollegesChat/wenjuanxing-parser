@@ -104,6 +104,13 @@ def _worker_parse_chunk(args: tuple[int, list[int]]) -> list[QuestionnaireRespon
     return [_parse_row(ctx_id, idx) for idx in chunk]
 
 
+def _init_worker(ctx_data: dict[str, Any]) -> None:
+    """在每个 worker 进程启动时初始化 _ctx_registry"""
+    global _ctx_registry, _next_ctx_id
+    _ctx_registry[0] = ctx_data
+    _next_ctx_id = 1
+
+
 @dataclass(frozen=True)
 class QuestionnaireData:
     _height: int = field(repr=False)
@@ -184,10 +191,15 @@ class QuestionnaireData:
                 list(range(s, min(s + chunk_size, self._height)))
                 for s in range(0, self._height, chunk_size)
             ]
-            with ProcessPoolExecutor(max_workers=n_workers) as pool:
+            ctx_data = _ctx_registry[self._ctx_id]
+            with ProcessPoolExecutor(
+                max_workers=n_workers,
+                initializer=_init_worker,
+                initargs=(ctx_data,),
+            ) as pool:
                 for chunk_result in pool.map(
                     _worker_parse_chunk,
-                    [(self._ctx_id, c) for c in chunks],
+                    [(0, c) for c in chunks],
                 ):
                     yield from chunk_result
 

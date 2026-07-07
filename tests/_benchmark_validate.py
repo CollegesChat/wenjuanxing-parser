@@ -60,13 +60,12 @@ LONG_TEXTS = [
     "我是一名即将毕业的本科生，已经拿到了几家互联网公司的 offer。大学期间我积极参与实习，在多家知名企业积累了丰富的工作经验。",
 ]
 
-ROW_COUNT = 20_000
+ROW_COUNT = 200_000
 
 
 @pytest.fixture(scope="module")
 def benchmark_data():
     yaml_obj = parse_yaml(YAML_CONTENT)
-    assert isinstance(yaml_obj, dict)
     questions_map = load_questions_from_yaml(yaml_obj)
 
     genders = ["男", "女", "其他〖非二元性别〗"]

@@ -3,12 +3,10 @@
 from datetime import datetime, timedelta
 from enum import StrEnum
 from ipaddress import IPv4Address, IPv6Address, ip_address
-from typing import Annotated, Literal, TypeVar
+from typing import Annotated, Literal
 
 from pydantic import BeforeValidator
 from pydantic.dataclasses import dataclass
-
-T = TypeVar("T")
 
 
 # 基础特殊状态枚举

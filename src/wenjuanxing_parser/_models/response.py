@@ -1,13 +1,12 @@
 """问卷响应处理"""
 
 import re
-from collections.abc import Mapping
 
 from pydantic.dataclasses import dataclass
 
 from .answers import AnswerValue, SelectedOption, UserAnswer
 from .base import BasicData, PolarsValue, ResponseStatus
-from .questions import AnyQuestion
+from .questions import AnyQuestion, Questionnaire
 
 
 @dataclass(frozen=True)
@@ -20,7 +19,7 @@ class QuestionnaireResponse:
         cls,
         meta_data: BasicData | None,
         row_answers_dict: dict[int, list[PolarsValue] | PolarsValue],
-        questions_map: Mapping[int, AnyQuestion],
+        questions_map: Questionnaire,
     ) -> "QuestionnaireResponse":
         """【独立步骤 1】纯粹的数据解析层：将原始多维/扁平数据无痛解包为结构化对象，不含任何业务校验。"""
         answers: dict[int, UserAnswer] = {}
@@ -120,7 +119,7 @@ class QuestionnaireResponse:
         return cls(metadata=meta_data, answers=answers)
 
     def validate(
-        self, questions_map: Mapping[int, AnyQuestion]
+        self, questions_map: Questionnaire
     ) -> "QuestionnaireResponse":
         """【独立步骤 2】纯粹的业务校验层：传入配置元数据，对当前已解析的答卷数据动态计算弱校验，返回带状态的新答卷。"""
         validated_answers: dict[int, UserAnswer] = {}
@@ -195,7 +194,7 @@ class QuestionnaireResponse:
         cls,
         meta_data: BasicData | None,
         row_answers_dict: dict[int, list[PolarsValue] | PolarsValue],
-        questions_map: Mapping[int, AnyQuestion],
+        questions_map: Questionnaire,
     ) -> "QuestionnaireResponse":
         """【向后兼容管线】顺序调用解析和验证，保证上游原有调用代码无需任何修改。"""
         response = cls.parse_from_dict(meta_data, row_answers_dict, questions_map)

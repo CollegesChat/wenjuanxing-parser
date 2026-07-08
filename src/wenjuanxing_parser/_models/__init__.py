@@ -25,6 +25,7 @@ from .questions import (
     FillBlankQuestion,
     Option,
     Question,
+    Questionnaire,
     RadioQuestion,
     TextAreaQuestion,
 )
@@ -48,7 +49,7 @@ __all__ = [
     "AnyQuestion",
     # answers
     "SelectedOption",
-    "ChosenOption",
+    "ChosenOption",  # compatibility alias
     "RadioAnswer",
     "CheckboxAnswer",
     "TextAreaAnswer",
@@ -58,5 +59,5 @@ __all__ = [
     # response
     "QuestionnaireResponse",
     # dataframe
-    "QuestionnaireData",
+    "QuestionnaireData", "Questionnaire",
 ]

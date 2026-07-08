@@ -18,6 +18,7 @@ from ._models import (
     Option,
     PolarsValue,
     Question,
+    Questionnaire,
     QuestionnaireData,
     QuestionnaireResponse,
     QuestionType,
@@ -46,6 +47,7 @@ __all__ = [
     "TextAreaQuestion",
     "FillBlankQuestion",
     "AnyQuestion",
+    "Questionnaire",
     # Answer types
     "SelectedOption",
     "ChosenOption",

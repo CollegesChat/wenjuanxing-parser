@@ -5,12 +5,12 @@ import weakref
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from typing import Any, Mapping, Self
+from typing import Any, Self
 
 import polars as pl
 
 from .base import IP, BasicData, PolarsValue
-from .questions import AnyQuestion
+from .questions import AnyQuestion, Questionnaire
 from .response import QuestionnaireResponse
 
 _ctx_registry: dict[int, dict[str, Any]] = {}
@@ -105,7 +105,7 @@ class QuestionnaireData:
     def from_dataframe(
         cls,
         df: pl.DataFrame,
-        questions_map: Mapping[int, AnyQuestion],
+        questions_map: Questionnaire,
         meta_extractor: Callable[[pl.DataFrame, Any], BasicData | None] | None = None,
         q_num_extractor: Callable[[str], int | None] | None = None,
         validate: bool = False,

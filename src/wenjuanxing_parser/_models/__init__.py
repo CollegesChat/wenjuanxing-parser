@@ -59,5 +59,6 @@ __all__ = [
     # response
     "QuestionnaireResponse",
     # dataframe
-    "QuestionnaireData", "Questionnaire",
+    "QuestionnaireData",
+    "Questionnaire",
 ]

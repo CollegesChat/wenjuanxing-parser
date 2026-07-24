@@ -5,8 +5,27 @@ from enum import StrEnum
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Annotated, Literal
 
-from pydantic import BeforeValidator
+from typing import Any
+
+from pydantic import BaseModel, BeforeValidator, ConfigDict
 from pydantic.dataclasses import dataclass
+
+
+class CleanReprModel(BaseModel):
+    """
+    最顶层基类：统一锁死严格禁止未知字段和冻结属性，
+    并过滤 repr 中的 None/False/空字符串，保持输出简洁。
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    def __repr_args__(self) -> list[tuple[str | None, Any]]:
+        original_args = super().__repr_args__()
+        return [
+            (k, v)
+            for k, v in original_args
+            if v is not None and v is not False and v != ""
+        ]
 
 
 # 基础特殊状态枚举

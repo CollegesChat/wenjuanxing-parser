@@ -118,9 +118,7 @@ class QuestionnaireResponse:
 
         return cls(metadata=meta_data, answers=answers)
 
-    def validate(
-        self, questions_map: Questionnaire
-    ) -> "QuestionnaireResponse":
+    def validate(self, questions_map: Questionnaire) -> "QuestionnaireResponse":
         """【独立步骤 2】纯粹的业务校验层：传入配置元数据，对当前已解析的答卷数据动态计算弱校验，返回带状态的新答卷。"""
         validated_answers: dict[int, UserAnswer] = {}
 

@@ -2,10 +2,10 @@
 
 from typing import Annotated, Any, Literal, Mapping
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
+from pydantic import BeforeValidator, Field, model_validator
 from pydantic.json_schema import GenerateJsonSchema
 
-from .base import QuestionType  # 保持原有的基础枚举/类型导入
+from .base import CleanReprModel, QuestionType
 
 # 填空题空格配置类型：支持 dict 显式指定位置，或 list 混合（str 按顺序，dict 显式指定）
 type BlankConfig = dict[int, str] | list[str | dict[int, str]] | None
@@ -32,24 +32,6 @@ class CustomSchemaGenerator(GenerateJsonSchema):
                     def_schema["discriminator"] = {"propertyName": "type"}
 
         return json_schema
-
-
-class CleanReprModel(BaseModel):
-    """
-    最顶层基类：统一锁死严格禁止未知字段和冻结属性。
-    下属所有子类模型（包括 Option、Question 等）将自动无缝继承此家规，绝不覆盖！
-    """
-
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-    def __repr_args__(self) -> list[tuple[str | None, Any]]:
-        original_args = super().__repr_args__()
-        # 显式区分 False 和 0，过滤掉 None、False、空字符串
-        return [
-            (k, v)
-            for k, v in original_args
-            if v is not None and v is not False and v != ""
-        ]
 
 
 class AdditionalInfo(CleanReprModel):
@@ -121,12 +103,16 @@ class FillBlankQuestion(Question):
     default_blank_text: BlankConfig = Field(
         None,
         title="默认填充文本",
-        description="各空格的默认填充文本。dict 格式：键为空格序号（从1起），值为默认文本；list 格式支持混合：str 按顺序填充，dict 显式指定位置（如 [\"北京\", {5: \"广州\"}, \"上海\"]）。",
+        description='各空格的默认填充文本。dict 格式：键为空格序号（从1起），值为默认文本；list 格式支持混合：str 按顺序填充，dict 显式指定位置（如 ["北京", {5: "广州"}, "上海"]）。',
     )
 
     @staticmethod
     def _parse_mixed_list(
-        items: list, blank_count: int, field_name: str, num: int, strict_length: bool = False
+        items: list,
+        blank_count: int,
+        field_name: str,
+        num: int,
+        strict_length: bool = False,
     ) -> dict[int, str]:
         """解析混合格式 list，返回 dict[int, str]。
 
@@ -167,8 +153,11 @@ class FillBlankQuestion(Question):
         if self.regex is not None:
             if isinstance(self.regex, list):
                 object.__setattr__(
-                    self, "regex",
-                    self._parse_mixed_list(self.regex, self.blank_count, "regex", self.num)
+                    self,
+                    "regex",
+                    self._parse_mixed_list(
+                        self.regex, self.blank_count, "regex", self.num
+                    ),
                 )
             else:
                 for key in self.regex:
@@ -180,8 +169,11 @@ class FillBlankQuestion(Question):
         if self.default_blank_text is not None:
             if isinstance(self.default_blank_text, list):
                 object.__setattr__(
-                    self, "default_blank_text",
-                    self._parse_mixed_list(self.default_blank_text, self.blank_count, "默认文本", self.num)
+                    self,
+                    "default_blank_text",
+                    self._parse_mixed_list(
+                        self.default_blank_text, self.blank_count, "默认文本", self.num
+                    ),
                 )
             else:
                 for key in self.default_blank_text:

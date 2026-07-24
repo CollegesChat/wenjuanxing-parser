@@ -1,35 +1,18 @@
 """答案容器定义"""
+
 import warnings
 from typing import Any, overload
-
-from pydantic import BaseModel, ConfigDict
 
 try:
     from typing import deprecated  # type: ignore
 except ImportError:
     from typing_extensions import deprecated
 
-from .base import ResponseStatus
-
-
-class CleanReprModel(BaseModel):
-    """
-    提供类似于 smart_repr 过滤空值/默认值功能的基类
-    """
-
-    def __repr_args__(self) -> list[tuple[str | None, Any]]:
-        original_args = super().__repr_args__()
-        return [
-            (k, v)
-            for k, v in original_args
-            if v is not None and v is not False and v != ""
-        ]
+from .base import CleanReprModel, ResponseStatus
 
 
 class SelectedOption(CleanReprModel):
     """存放选中选项及其附带文本的容器"""
-
-    model_config = ConfigDict(frozen=True)
 
     text: str
     additional_text: str | None = None
@@ -75,8 +58,6 @@ class UserAnswer(CleanReprModel):
     带弱校验标记的答案容器。
     清洗层可以通过 if answer.valid is False 快速定位并处理脏数据。
     """
-
-    model_config = ConfigDict(frozen=True)
 
     value: AnswerValue
     valid: bool | None = None
@@ -127,5 +108,3 @@ class UserAnswer(CleanReprModel):
                 (v.text if isinstance(v, SelectedOption) else v) == text for v in val
             )
         return False
-
-

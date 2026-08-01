@@ -1,10 +1,10 @@
 """答案容器定义"""
 
 import warnings
-from typing import Any, overload
+from typing import overload
 
 try:
-    from typing import deprecated  # type: ignore
+    from warnings import deprecated  # type: ignore
 except ImportError:
     from typing_extensions import deprecated
 

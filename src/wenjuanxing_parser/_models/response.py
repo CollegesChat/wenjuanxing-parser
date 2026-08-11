@@ -1,12 +1,14 @@
 """问卷响应处理"""
 
 import re
+import warnings
 
 from pydantic.dataclasses import dataclass
 
+from ..warnings import BracketDelimiterWarning
 from .answers import AnswerValue, SelectedOption, UserAnswer
 from .base import BasicData, PolarsValue, ResponseStatus
-from .questions import AnyQuestion, Questionnaire
+from .questions import Questionnaire
 
 
 @dataclass(frozen=True)
@@ -200,31 +202,38 @@ class QuestionnaireResponse:
 
     @staticmethod
     def _split_outside_brackets(text: str) -> list[str]:
-        """用正则表达式和占位符法：在 〖...〗 外按 ┋ 分割，保留内部 ┋"""
-        brackets = []
+        """纯正则提取版本：直接按 ┋ 提取文本片段。
+        若检测到 〖...〗 内部包含 ┋，将主动发出 warnings 警告提示解析风险。
+        """
+        # 1. 主动检测是否存在 〖...〗 内部包含 ┋ 的情况（即用户主动输入了分隔符）
+        if re.search(r"〖[^〗]*┋[^〗]*〗", text):
+            warnings.warn(
+                f"检测到 〖...〗 内部包含分隔符 '┋'（可能为用户主动填写的文本）解析结果可能存在偏差：{text!r}",
+                BracketDelimiterWarning,
+                stacklevel=2,
+            )
 
-        def save_bracket(m):
-            brackets.append(m.group())
-            return f"§{len(brackets) - 1}§"
-
-        # 保存所有 〖...〗，用占位符替换
-        temp = re.sub(r"〖[^〗]*〗", save_bracket, text)
-        # 按 ┋ 分割
-        parts = temp.split("┋")
-        # 恢复所有 〖...〗
-        result = []
-        for part in parts:
-            restored = part
-            for i, bracket in enumerate(brackets):
-                restored = restored.replace(f"§{i}§", bracket)
-            stripped = restored.strip()
-            if stripped:
-                result.append(stripped)
-        return result
+        # 2. 纯正则提取非 ┋ 字符片段，去除首尾空白并滤除空串
+        return [p.strip() for p in re.findall(r"[^┋]+", text) if p.strip()]
 
     @staticmethod
     def _parse_single_option(raw_str: str) -> SelectedOption:
-        """解析问卷星导出的带附加文本的选项 (如: 选项名〖附加文本〗)"""
+        """解析问卷星导出的带附加文本的选项 (如: 选项名〖附加文本〗)
+
+        仅检测异常括号/分隔符并抛出警告，不修改原本的解析提取逻辑。
+        """
+        # 1. 检测逻辑：只监测，不阻断
+        left_count = raw_str.count("〖")
+        right_count = raw_str.count("〗")
+
+        if left_count != right_count or left_count > 1:
+            warnings.warn(
+                f"检测到选项文本中包含不匹配或嵌套的括号 '〖/〗'，可能为用户主动填写的文本，解析提取结果可能存在偏差：{raw_str!r}",
+                category=BracketDelimiterWarning,
+                stacklevel=2,
+            )
+
+        # 2. 原封不动的提取逻辑
         if "〖" in raw_str:
             parts = raw_str.split("〖", 1)
             text = parts[0].strip()

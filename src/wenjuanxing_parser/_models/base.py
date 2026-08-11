@@ -3,9 +3,7 @@
 from datetime import datetime, timedelta
 from enum import StrEnum
 from ipaddress import IPv4Address, IPv6Address, ip_address
-from typing import Annotated, Literal
-
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict
 from pydantic.dataclasses import dataclass
@@ -31,7 +29,8 @@ class CleanReprModel(BaseModel):
 # 基础特殊状态枚举
 class ResponseStatus(StrEnum):
     EMPTY = "(空)"
-    SKIPPED = "(跳过)"
+    SKIPPED = "(跳过)"  # 程序规则设置的跳题
+    NONE = "无"  # 仅用于填空题的附加文本，表示用户未填写任何内容，但题目本身是存在的
 
 
 # 基础类型别名

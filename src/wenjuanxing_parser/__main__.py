@@ -41,9 +41,8 @@ def format_value(val) -> str:
         return ""
 
     if isinstance(val, SelectedOption):
-        if val.additional_text:
-            sep = "" if val.additional_text[0] in "，。、；：,.;:" else "，"
-            return f"{val.text}{sep}{val.additional_text}"
+        if val.additional_text and val.additional_text != ResponseStatus.NONE:
+            return f"{val.text}({val.additional_text})"
         return val.text
 
     if isinstance(val, list):

@@ -34,10 +34,12 @@ uv sync
 ## 🚀 快速使用
 
 安装：
+
 ```bash
 pip install wenjuanxing-parser[all] # 安装推荐的YAML（py-yaml12，用于问卷schema） + xlsx（python-calamine） 格式支持库
 pip install wenjuanxing-parser # 仅安装数据处理模块，数据用你自己的库读
 ```
+
 ## 使用方法
 
 1. 先编写问卷schema：[例子](https://github.com/CollegesChat/questionnaire/blob/main/v2.yaml)
@@ -97,4 +99,4 @@ uv run pytest
 
 ## 📄 开源协议
 
-本项目采用 **AGPL-3.0-only** 协议开源。
+本项目采用 **MIT** 协议开源。

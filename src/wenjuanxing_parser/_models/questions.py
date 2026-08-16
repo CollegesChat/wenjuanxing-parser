@@ -113,14 +113,8 @@ class FillBlankQuestion(Question):
         blank_count: int,
         field_name: str,
         num: int,
-        strict_length: bool = False,
     ) -> dict[int, str]:
-        """解析混合格式 list，返回 dict[int, str]。
-
-        Args:
-            strict_length: 若为 True，list 长度必须 <= blank_count（用于 default_blank_text）
-                          若为 False，允许少于 blank_count（用于 regex）
-        """
+        """解析混合格式 list，返回 dict[int, str]。"""
         result: dict[int, str] = {}
         seq_pos = 1
         for item in items:

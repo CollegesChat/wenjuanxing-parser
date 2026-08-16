@@ -11,11 +11,12 @@ from yaml12 import parse_yaml
 from wenjuanxing_parser.loader import load_questions_from_yaml
 from wenjuanxing_parser.models import (
     IP,
-    AnyQuestion,
     BasicData,
     Questionnaire,
     QuestionnaireData,
 )
+
+logger = logging.getLogger(__name__)
 
 yaml = parse_yaml(
     get(
@@ -64,7 +65,7 @@ def test_old():
         return int(match.group(1)) if match else None
 
     questionnaire: Questionnaire = load_questions_from_yaml(yaml)
-    logging.info(
+    logger.info(
         QuestionnaireData.from_dataframe(
             df, questionnaire, meta_extractor, qnum_extractor
         )

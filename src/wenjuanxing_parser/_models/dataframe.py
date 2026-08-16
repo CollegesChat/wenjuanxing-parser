@@ -6,11 +6,12 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Any, Self
+from zoneinfo import ZoneInfo
 
 import polars as pl
 
 from .base import IP, BasicData, PolarsValue
-from .questions import AnyQuestion, Questionnaire
+from .questions import Questionnaire
 from .response import QuestionnaireResponse
 
 _ctx_registry: dict[int, dict[str, Any]] = {}
@@ -31,7 +32,9 @@ def _build_basic_data(matrix_dict: dict, idx: int) -> BasicData:
         except ValueError:
             for fmt in ("%Y/%m/%d %H:%M:%S", "%Y-%m-%d %H:%M:%S"):
                 try:
-                    answer_date = datetime.strptime(raw_date, fmt)
+                    answer_date = datetime.strptime(raw_date, fmt).replace(
+                        tzinfo=ZoneInfo("Asia/Shanghai")
+                    )
                     break
                 except ValueError:
                     continue

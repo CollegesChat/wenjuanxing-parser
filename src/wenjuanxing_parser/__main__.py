@@ -132,7 +132,7 @@ def main():
 
     except Exception as e:
         print(f"💥 运行时发生错误: {e}", file=sys.stderr)
-        raise e
+        raise
         sys.exit(1)
 
 

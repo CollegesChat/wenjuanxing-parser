@@ -1,6 +1,7 @@
 """基准测试：对比 from_dataframe 开启/关闭验证的性能差异"""
 
 import time
+from typing import cast
 
 import polars as pl
 import pytest
@@ -66,7 +67,7 @@ ROW_COUNT = 200_000
 @pytest.fixture(scope="module")
 def benchmark_data():
     yaml_obj = parse_yaml(YAML_CONTENT)
-    questions_map = load_questions_from_yaml(yaml_obj)
+    questions_map = load_questions_from_yaml(cast(list | dict, yaml_obj))
 
     genders = ["男", "女", "其他〖非二元性别〗"]
     grades = ["大一", "大二", "大三", "大四", "研究生〖硕士〗", "研究生〖博士〗"]

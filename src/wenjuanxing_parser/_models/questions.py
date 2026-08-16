@@ -1,6 +1,7 @@
 """题目定义及类型"""
 
-from typing import Annotated, Any, Literal, Mapping
+from collections.abc import Mapping
+from typing import Annotated, Any, Literal
 
 from pydantic import BeforeValidator, Field, model_validator
 from pydantic.json_schema import GenerateJsonSchema
@@ -90,7 +91,7 @@ class TextAreaQuestion(Question):
 class FillBlankQuestion(Question):
     blank_count: int = Field(
         2,
-        ge=2,
+        ge=1,
         title="空格数量",
         description="fill_blank 类型的多项填空题，空格数必须大于 1",
     )
@@ -144,8 +145,7 @@ class FillBlankQuestion(Question):
                         )
                     result[key] = val
                 max_key = max(item.keys())
-                if max_key + 1 > seq_pos:
-                    seq_pos = max_key + 1
+                seq_pos = max(seq_pos, max_key + 1)
         return result
 
     @model_validator(mode="after")

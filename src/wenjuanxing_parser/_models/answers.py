@@ -33,7 +33,6 @@ class SelectedOption(CleanReprModel):
 
 
 # 向后兼容别名
-ChosenOption = SelectedOption
 
 
 # 细化各种题型的内部容器类型

@@ -11,7 +11,6 @@ from ._models import (
     BasicData,
     CheckboxAnswer,
     CheckboxQuestion,
-    ChosenOption,
     FillBlankAnswer,
     FillBlankQuestion,
     IPAddress,
@@ -38,24 +37,19 @@ __all__ = [
     "BasicData",
     "CheckboxAnswer",
     "CheckboxQuestion",
-    "ChosenOption",
     "FillBlankAnswer",
     "FillBlankQuestion",
     "IPAddress",
-    # Question types
     "Option",
     "PolarsValue",
     "Question",
     "QuestionType",
     "Questionnaire",
     "QuestionnaireData",
-    # Response and data structures
     "QuestionnaireResponse",
     "RadioAnswer",
     "RadioQuestion",
-    # Base types and enums
     "ResponseStatus",
-    # Answer types
     "SelectedOption",
     "TextAreaAnswer",
     "TextAreaQuestion",

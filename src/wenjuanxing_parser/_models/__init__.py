@@ -3,7 +3,6 @@
 from .answers import (
     AnswerValue,
     CheckboxAnswer,
-    ChosenOption,
     FillBlankAnswer,
     RadioAnswer,
     SelectedOption,
@@ -38,25 +37,19 @@ __all__ = [
     "BasicData",
     "CheckboxAnswer",
     "CheckboxQuestion",
-    "ChosenOption",  # compatibility alias
     "FillBlankAnswer",
     "FillBlankQuestion",
     "IPAddress",
-    # questions
     "Option",
     "PolarsValue",
     "Question",
     "QuestionType",
     "Questionnaire",
-    # dataframe
     "QuestionnaireData",
-    # response
     "QuestionnaireResponse",
     "RadioAnswer",
     "RadioQuestion",
-    # base
     "ResponseStatus",
-    # answers
     "SelectedOption",
     "TextAreaAnswer",
     "TextAreaQuestion",

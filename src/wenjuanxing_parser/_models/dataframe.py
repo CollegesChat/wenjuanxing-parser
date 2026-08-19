@@ -1,7 +1,6 @@
 """从数据框懒加载解析问卷数据"""
 
 import re
-import weakref
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
@@ -13,9 +12,6 @@ import polars as pl
 from .base import IP, BasicData, PolarsValue
 from .questions import Questionnaire
 from .response import QuestionnaireResponse
-
-_ctx_registry: dict[int, dict[str, Any]] = {}
-_next_ctx_id: int = 0
 
 
 def _build_basic_data(matrix_dict: dict, idx: int) -> BasicData:
@@ -65,8 +61,7 @@ def _build_basic_data(matrix_dict: dict, idx: int) -> BasicData:
     )
 
 
-def _parse_row(ctx_id: int, idx: int) -> QuestionnaireResponse:
-    ctx = _ctx_registry[ctx_id]
+def _parse_row(ctx: dict[str, Any], idx: int) -> QuestionnaireResponse:
     matrix_dict = ctx["matrix_dict"]
     q_resolved_groups = ctx["q_resolved_groups"]
     questions_map = ctx["questions_map"]
@@ -102,7 +97,7 @@ def _parse_row(ctx_id: int, idx: int) -> QuestionnaireResponse:
 @dataclass(frozen=True)
 class QuestionnaireData:
     _height: int = field(repr=False)
-    _ctx_id: int = field(repr=False)
+    _ctx: dict[str, Any] = field(repr=False, compare=False, hash=False)
 
     @classmethod
     def from_dataframe(
@@ -113,7 +108,6 @@ class QuestionnaireData:
         q_num_extractor: Callable[[str], int | None] | None = None,
         validate: bool = False,
     ) -> Self:
-        global _next_ctx_id
         df_cleaned_rows = df.clone()
 
         def default_q_num_extractor(col_name: str) -> int | None:
@@ -150,9 +144,7 @@ class QuestionnaireData:
             for q_num, columns in q_col_groups.items()
         }
 
-        ctx_id = _next_ctx_id
-        _next_ctx_id += 1
-        _ctx_registry[ctx_id] = {
+        ctx = {
             "matrix_dict": matrix_dict,
             "q_resolved_groups": q_resolved_groups,
             "questions_map": questions_map,
@@ -160,16 +152,14 @@ class QuestionnaireData:
             "df_ref": df_cleaned_rows,
             "validate": validate,
         }
-        instance = cls(_height=df_cleaned_rows.height, _ctx_id=ctx_id)
-        weakref.finalize(instance, _ctx_registry.pop, ctx_id, None)
-        return instance
+        return cls(_height=df_cleaned_rows.height, _ctx=ctx)
 
     def __repr__(self) -> str:
         return f"QuestionnaireData(rows={self._height})"
 
     def __iter__(self) -> Iterator[QuestionnaireResponse]:
         for idx in range(self._height):
-            yield _parse_row(self._ctx_id, idx)
+            yield _parse_row(self._ctx, idx)
 
     def __len__(self) -> int:
         return self._height
@@ -179,4 +169,4 @@ class QuestionnaireData:
             idx += self._height
         if not 0 <= idx < self._height:
             raise IndexError(idx)
-        return _parse_row(self._ctx_id, idx)
+        return _parse_row(self._ctx, idx)

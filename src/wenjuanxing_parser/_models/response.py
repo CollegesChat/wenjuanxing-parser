@@ -17,13 +17,12 @@ class QuestionnaireResponse:
     metadata: BasicData | None = None
 
     @classmethod
-    def parse_from_dict(
+    def _parse_answers(
         cls,
-        meta_data: BasicData | None,
         row_answers_dict: dict[int, list[PolarsValue] | PolarsValue],
         questions_map: Questionnaire,
-    ) -> "QuestionnaireResponse":
-        """【独立步骤 1】纯粹的数据解析层：将原始多维/扁平数据无痛解包为结构化对象，不含任何业务校验。"""
+    ) -> dict[int, UserAnswer]:
+        """解析原始答案，不构造 QuestionnaireResponse。"""
         answers: dict[int, UserAnswer] = {}
         if not isinstance(questions_map, dict):
             raise TypeError("questions_map 必须是一个字典映射！")
@@ -118,13 +117,28 @@ class QuestionnaireResponse:
             # 仅组装干净的数据，校验属性保持默认值
             answers[q_num] = UserAnswer(value=parsed_value)
 
+        return answers
+
+    @classmethod
+    def parse_from_dict(
+        cls,
+        meta_data: BasicData | None,
+        row_answers_dict: dict[int, list[PolarsValue] | PolarsValue],
+        questions_map: Questionnaire,
+    ) -> "QuestionnaireResponse":
+        """【独立步骤 1】解析原始数据并构造未验证的答卷对象。"""
+        answers = cls._parse_answers(row_answers_dict, questions_map)
         return cls(metadata=meta_data, answers=answers)
 
-    def validate(self, questions_map: Questionnaire) -> "QuestionnaireResponse":
-        """【独立步骤 2】纯粹的业务校验层：传入配置元数据，对当前已解析的答卷数据动态计算弱校验，返回带状态的新答卷。"""
+    @staticmethod
+    def _validate_answers(
+        answers: dict[int, UserAnswer],
+        questions_map: Questionnaire,
+    ) -> dict[int, UserAnswer]:
+        """对已解析的答案执行业务校验，不构造 QuestionnaireResponse。"""
         validated_answers: dict[int, UserAnswer] = {}
 
-        for q_num, user_ans in self.answers.items():
+        for q_num, user_ans in answers.items():
             question = questions_map.get(q_num)
             if not question:
                 # 若题库里没配置该题，保持解析原样
@@ -186,7 +200,11 @@ class QuestionnaireResponse:
                 value=parsed_value, valid=valid, error_msg=error_msg
             )
 
-        # 返回打上验证标记的新对象实例
+        return validated_answers
+
+    def validate(self, questions_map: Questionnaire) -> "QuestionnaireResponse":
+        """【独立步骤 2】校验当前答卷并返回新的答卷对象。"""
+        validated_answers = self._validate_answers(self.answers, questions_map)
         return self.__class__(metadata=self.metadata, answers=validated_answers)
 
     @classmethod
@@ -197,8 +215,9 @@ class QuestionnaireResponse:
         questions_map: Questionnaire,
     ) -> "QuestionnaireResponse":
         """【向后兼容管线】顺序调用解析和验证，保证上游原有调用代码无需任何修改。"""
-        response = cls.parse_from_dict(meta_data, row_answers_dict, questions_map)
-        return response.validate(questions_map)
+        answers = cls._parse_answers(row_answers_dict, questions_map)
+        validated_answers = cls._validate_answers(answers, questions_map)
+        return cls(metadata=meta_data, answers=validated_answers)
 
     @staticmethod
     def _split_outside_brackets(text: str) -> list[str]:

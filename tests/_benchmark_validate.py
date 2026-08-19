@@ -1,5 +1,5 @@
 """基准测试：对比 from_dataframe 开启/关闭验证的性能差异"""
-
+# pytest tests/_benchmark_validate.py -s -q
 import time
 from typing import cast
 

@@ -1,6 +1,6 @@
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from itertools import islice
 from typing import Any
 
@@ -10,7 +10,7 @@ from yaml12 import parse_yaml
 
 from wenjuanxing_parser.loader import load_questions_from_yaml
 from wenjuanxing_parser.models import (
-    IP,
+    MISSING_BASIC_DATA_KWARGS,
     BasicData,
     Questionnaire,
     QuestionnaireData,
@@ -53,10 +53,7 @@ def test_old():
         return LegacyBasicData(  # 4. 移除了括号末尾的硬编码逗号，确保返回纯粹的实体对象，通过 ty check 校验
             answer_date=datetime.fromisoformat(str(row["开始时间"])),
             num=int(row["答题序号"]),
-            time_used=timedelta(0),
-            source="null",
-            source_detail="null",
-            ip=IP(address="127.0.0.1", location="null"),
+            **MISSING_BASIC_DATA_KWARGS,
         )
 
     def qnum_extractor(col_name: str) -> int | None:

@@ -6,6 +6,7 @@ and classes from the internal _models package.
 
 from ._models import (
     IP,
+    SKIPPED_OR_EMPTY,
     AnswerValue,
     AnyQuestion,
     BasicData,
@@ -56,4 +57,5 @@ __all__ = [
     "TextAreaAnswer",
     "TextAreaQuestion",
     "UserAnswer",
+    "SKIPPED_OR_EMPTY"
 ]

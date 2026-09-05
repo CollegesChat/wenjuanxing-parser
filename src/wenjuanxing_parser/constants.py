@@ -3,7 +3,7 @@
 from datetime import timedelta
 from typing import Final, TypedDict
 
-from ._models.base import IP
+from .models import IP
 
 
 class MissingBasicDataKwargs(TypedDict):

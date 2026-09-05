@@ -11,6 +11,7 @@ from .answers import (
 )
 from .base import (
     IP,
+    SKIPPED_OR_EMPTY,
     BasicData,
     IPAddress,
     PolarsValue,
@@ -54,4 +55,5 @@ __all__ = [
     "TextAreaAnswer",
     "TextAreaQuestion",
     "UserAnswer",
+    "SKIPPED_OR_EMPTY"
 ]

@@ -1,5 +1,4 @@
 """问卷响应处理"""
-
 import re
 import warnings
 
@@ -7,7 +6,7 @@ from pydantic.dataclasses import dataclass
 
 from ..warnings import BracketDelimiterWarning
 from .answers import AnswerValue, SelectedOption, UserAnswer
-from .base import BasicData, PolarsValue, ResponseStatus
+from .base import SKIPPED_OR_EMPTY, BasicData, PolarsValue, ResponseStatus
 from .questions import Questionnaire
 
 
@@ -47,12 +46,8 @@ class QuestionnaireResponse:
                 else:
                     check_strs = [str(raw_value).strip()]
 
-                if len(set(check_strs)) == 1 and check_strs[0] in ("(空)", "(跳过)"):
-                    parsed_value = (
-                        ResponseStatus.EMPTY
-                        if check_strs[0] == "(空)"
-                        else ResponseStatus.SKIPPED
-                    )
+                if len(set(check_strs)) == 1 and check_strs[0] in SKIPPED_OR_EMPTY:
+                    parsed_value = ResponseStatus(check_strs[0])
 
                 # 3. 进入各题型的具体解包派发
                 elif question.type == "fill_blank":
@@ -64,10 +59,8 @@ class QuestionnaireResponse:
                                 parts.append("")
                             else:
                                 s = str(v).strip()
-                                if s == "(空)":
-                                    parts.append(ResponseStatus.EMPTY)
-                                elif s == "(跳过)":
-                                    parts.append(ResponseStatus.SKIPPED)
+                                if s in SKIPPED_OR_EMPTY:
+                                    parts.append(ResponseStatus(s))
                                 elif s.lower() == "nan":
                                     parts.append("")
                                 else:
@@ -76,9 +69,9 @@ class QuestionnaireResponse:
                         raw_str = str(raw_value).strip()
                         parts = []
                         for p in cls._split_outside_brackets(raw_str):
-                            if p == "(空)":
+                            if p == ResponseStatus.EMPTY:
                                 parts.append(ResponseStatus.EMPTY)
-                            elif p == "(跳过)":
+                            elif p == ResponseStatus.SKIPPED:
                                 parts.append(ResponseStatus.SKIPPED)
                             else:
                                 parts.append(p)

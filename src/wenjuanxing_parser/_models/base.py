@@ -15,26 +15,31 @@ class CleanReprModel(BaseModel):
     并过滤 repr 中的 None/False/空字符串，保持输出简洁。
     """
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(extra='forbid', frozen=True)
 
     def __repr_args__(self) -> list[tuple[str | None, Any]]:
         original_args = super().__repr_args__()
         return [
             (k, v)
             for k, v in original_args
-            if v is not None and v is not False and v != ""
+            if v is not None and v is not False and v != ''
         ]
 
 
 # 基础特殊状态枚举
 class ResponseStatus(StrEnum):
-    EMPTY = "(空)"
-    SKIPPED = "(跳过)"  # 程序规则设置的跳题
-    NONE = "无"  # 仅用于填空题的附加文本，表示用户未填写任何内容，但题目本身是存在的
+    EMPTY = '(空)'
+    """用户主动跳题"""
+    SKIPPED = '(跳过)'
+    """程序规则设置的跳题"""
+    NONE = '无'
+    """仅在填空题的附加文本出现，表示用户未填写任何内容，但题目本身是存在的"""
 
+
+SKIPPED_OR_EMPTY = (ResponseStatus.EMPTY, ResponseStatus.SKIPPED)
 
 # 基础类型别名
-type QuestionType = Literal["radio", "checkbox", "fill_blank", "text_area"]
+type QuestionType = Literal['radio', 'checkbox', 'fill_blank', 'text_area']
 type PolarsValue = str | int | float | datetime | None
 type IPAddress = Annotated[
     IPv4Address | IPv6Address | str,

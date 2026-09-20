@@ -120,7 +120,9 @@ class FillBlankQuestion(Question):
         for item in items:
             if isinstance(item, str):
                 if item:
-                    while seq_pos in result or seq_pos > blank_count:
+                    # 仅跳过已被显式 dict 占用的位置；越界判定必须在自增之前，
+                    # 否则 seq_pos 一旦越界就会在 while 里无限自增。
+                    while seq_pos in result:
                         seq_pos += 1
                     if seq_pos > blank_count:
                         raise ValueError(

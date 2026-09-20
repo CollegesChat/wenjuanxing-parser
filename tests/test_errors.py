@@ -1,9 +1,12 @@
 """错误 / 警告层次的回归测试。"""
 
+import warnings
+
 import pytest
 
 from wenjuanxing_parser.errors import (
     BlankConfigError,
+    BracketWarning,
     DelimiterWarning,
     InvalidQuestionsMapError,
     QuestionConfigError,
@@ -47,3 +50,34 @@ def test_delimiter_inside_brackets_warns():
     """〖...〗 内部出现 ┋ 时应发出 DelimiterWarning。"""
     with pytest.warns(DelimiterWarning):
         QuestionnaireResponse._split_outside_brackets("选项A〖x┋y〗")
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "选项A〖附加〖嵌套〗",  # 嵌套
+        "选项A〖未闭合",  # 缺少右括号
+        "多余右括号〗啊",  # 多余右括号
+        "〗〖",  # 括号顺序颠倒
+    ],
+)
+def test_genuine_bracket_anomalies_warn(raw):
+    """真正的括号异常必须触发 BracketWarning。"""
+    with pytest.warns(BracketWarning):
+        QuestionnaireResponse._parse_single_option(raw)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "断电〖测试〗┋断网〖测试〗",  # 多组并列，以 ┋ 分隔
+        "选项A〖x〗选项B〖y〗",  # 多组并列，无分隔符
+        "选项A〖附加文本〗",  # 单组正常
+        "普通文本",  # 无括号
+    ],
+)
+def test_multiple_balanced_pairs_do_not_warn(raw):
+    """多组并列的合法括号不得触发 BracketWarning。"""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", BracketWarning)
+        QuestionnaireResponse._parse_single_option(raw)

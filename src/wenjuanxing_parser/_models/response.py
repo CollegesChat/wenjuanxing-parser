@@ -9,6 +9,41 @@ from .answers import AnswerValue, SelectedOption, UserAnswer
 from .base import SKIPPED_OR_EMPTY, BasicData, PolarsValue, ResponseStatus
 from .questions import Questionnaire
 
+# 问卷星用来承载「选项附加文本」与「多选并列」的固定记号。
+# 用户极少手打这些符号，所以一旦出现就意味着解析结果可能存在偏差。
+BRACKET_OPEN = "〖"
+BRACKET_CLOSE = "〗"
+DELIMITER = "┋"
+
+_PLAIN = rf"[^{BRACKET_OPEN}{BRACKET_CLOSE}]"  # 任意一个非括号字符
+_NOT_CLOSE = rf"[^{BRACKET_CLOSE}]"  # 任意非闭括号字符（允许内含开括号）
+
+# 合法文本的完整语法：若干组「普通文本 + 一组平坦括号」，最后以普通文本收尾。
+# 括号内部不允许再出现括号，因此「多组并列」合法而「嵌套」不合法。
+# 任何偏离这套语法的情况（未闭合 / 多余右括号 / 嵌套）都匹配失败，即判定为异常。
+_WELL_FORMED_TEXT = re.compile(
+    rf"(?:{_PLAIN}*{BRACKET_OPEN}{_PLAIN}*{BRACKET_CLOSE})*{_PLAIN}*", re.DOTALL
+)
+
+# 第一组「完整配对」的括号，及其前后缀。head 用惰性匹配，确保取到最靠前的一组。
+_OPTION_PAIR = re.compile(
+    rf"^(?P<head>.*?){BRACKET_OPEN}(?P<additional>{_PLAIN}*){BRACKET_CLOSE}(?P<tail>.*)$",
+    re.DOTALL,
+)
+
+# 括号内部混入了多选分隔符（用户把分隔符当普通字符填了进去）
+_DELIMITER_INSIDE = re.compile(
+    rf"{BRACKET_OPEN}{_NOT_CLOSE}*{DELIMITER}{_NOT_CLOSE}*{BRACKET_CLOSE}"
+)
+
+
+def _has_bracket_anomaly(text: str) -> bool:
+    """判断括号是否不合乎「平坦配对」语法。
+
+    直接问一句「这段文字合不合语法」即可，比手写扫描更短，也不会漏掉任何一种异常。
+    """
+    return _WELL_FORMED_TEXT.fullmatch(text) is None
+
 
 @dataclass(frozen=True)
 class QuestionnaireResponse:
@@ -214,43 +249,51 @@ class QuestionnaireResponse:
 
     @staticmethod
     def _split_outside_brackets(text: str) -> list[str]:
-        """纯正则提取版本：直接按 ┋ 提取文本片段。
-        若检测到 〖...〗 内部包含 ┋，将主动发出 warnings 警告提示解析风险。
+        """纯正则提取版本：直接按分隔符切出各个文本片段。
+
+        若检测到括号内混入了分隔符，将主动发出 DelimiterWarning 警告提示解析风险。
         """
-        # 1. 主动检测是否存在 〖...〗 内部包含 ┋ 的情况（即用户主动输入了分隔符）
-        if re.search(r"〖[^〗]*┋[^〗]*〗", text):
+        # 1. 主动检测是否存在括号内混入分隔符的情况（即用户主动输入了分隔符）
+        if _DELIMITER_INSIDE.search(text):
             warnings.warn(
-                f"检测到 〖...〗 内部包含分隔符 '┋'（可能为用户主动填写的文本）解析结果可能存在偏差：{text!r}",
+                f"检测到 {BRACKET_OPEN}...{BRACKET_CLOSE} 内部包含分隔符 '{DELIMITER}'"
+                f"（可能为用户主动填写的文本）解析结果可能存在偏差：{text!r}",
                 DelimiterWarning,
                 stacklevel=2,
             )
 
-        # 2. 纯正则提取非 ┋ 字符片段，去除首尾空白并滤除空串
-        return [p.strip() for p in re.findall(r"[^┋]+", text) if p.strip()]
+        # 2. 纯正则提取非分隔符片段，去除首尾空白并滤除空串
+        return [
+            p.strip() for p in re.findall(rf"[^{DELIMITER}]+", text) if p.strip()
+        ]
 
     @staticmethod
     def _parse_single_option(raw_str: str) -> SelectedOption:
         """解析问卷星导出的带附加文本的选项 (如: 选项名〖附加文本〗)
 
-        仅检测异常括号/分隔符并抛出警告，不修改原本的解析提取逻辑。
+        仅检测异常括号并抛出 BracketWarning 警告；提取时以**第一组完整配对**的括号为准，
+        括号之外的前后缀原样拼回 ``text``，不丢弃任何字符。
         """
         # 1. 检测逻辑：只监测，不阻断
-        left_count = raw_str.count("〖")
-        right_count = raw_str.count("〗")
-
-        if left_count != right_count or left_count > 1:
+        if _has_bracket_anomaly(raw_str):
             warnings.warn(
-                f"检测到选项文本中包含不匹配或嵌套的括号 '〖/〗'，可能为用户主动填写的文本，解析提取结果可能存在偏差：{raw_str!r}",
+                f"检测到选项文本中包含不匹配或嵌套的括号 '{BRACKET_OPEN}/{BRACKET_CLOSE}'，"
+                f"可能为用户主动填写的文本，解析提取结果可能存在偏差：{raw_str!r}",
                 category=BracketWarning,
                 stacklevel=2,
             )
 
-        # 2. 原封不动的提取逻辑
-        if "〖" in raw_str:
-            parts = raw_str.split("〖", 1)
-            text = parts[0].strip()
-            additional = parts[1].rstrip("〗").strip() if len(parts) > 1 else ""
+        match = _OPTION_PAIR.match(raw_str)
+        if match is not None:
             return SelectedOption(
-                text=text, additional_text=additional if additional else None
+                text=(match["head"] + match["tail"]).strip(),
+                additional_text=match["additional"].strip() or None,
             )
-        return SelectedOption(text=raw_str, additional_text=None)
+
+        # 没有完整配对：若存在未闭合的开括号，其后全部视为附加文本；否则整串就是选项文本。
+        head, opened, rest = raw_str.partition(BRACKET_OPEN)
+        if opened:
+            return SelectedOption(
+                text=head.strip(), additional_text=rest.strip() or None
+            )
+        return SelectedOption(text=raw_str.strip(), additional_text=None)

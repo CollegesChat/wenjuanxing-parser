@@ -35,6 +35,7 @@ from .constants import MISSING_BASIC_DATA_KWARGS
 __all__ = [
     "IP",
     "MISSING_BASIC_DATA_KWARGS",
+    "SKIPPED_OR_EMPTY",
     "AnswerValue",
     "AnyQuestion",
     "BasicData",
@@ -56,6 +57,5 @@ __all__ = [
     "SelectedOption",
     "TextAreaAnswer",
     "TextAreaQuestion",
-    "UserAnswer",
-    "SKIPPED_OR_EMPTY"
+    "UserAnswer"
 ]

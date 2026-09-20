@@ -4,7 +4,7 @@ import warnings
 
 from pydantic.dataclasses import dataclass
 
-from ..warnings import BracketDelimiterWarning
+from ..errors import BracketWarning, DelimiterWarning, InvalidQuestionsMapError
 from .answers import AnswerValue, SelectedOption, UserAnswer
 from .base import SKIPPED_OR_EMPTY, BasicData, PolarsValue, ResponseStatus
 from .questions import Questionnaire
@@ -24,7 +24,7 @@ class QuestionnaireResponse:
         """解析原始答案，不构造 QuestionnaireResponse。"""
         answers: dict[int, UserAnswer] = {}
         if not isinstance(questions_map, dict):
-            raise TypeError("questions_map 必须是一个字典映射！")
+            raise InvalidQuestionsMapError("questions_map 必须是一个字典映射！")
 
         for q_num, question in questions_map.items():
             raw_value = row_answers_dict.get(q_num)
@@ -221,7 +221,7 @@ class QuestionnaireResponse:
         if re.search(r"〖[^〗]*┋[^〗]*〗", text):
             warnings.warn(
                 f"检测到 〖...〗 内部包含分隔符 '┋'（可能为用户主动填写的文本）解析结果可能存在偏差：{text!r}",
-                BracketDelimiterWarning,
+                DelimiterWarning,
                 stacklevel=2,
             )
 
@@ -241,7 +241,7 @@ class QuestionnaireResponse:
         if left_count != right_count or left_count > 1:
             warnings.warn(
                 f"检测到选项文本中包含不匹配或嵌套的括号 '〖/〗'，可能为用户主动填写的文本，解析提取结果可能存在偏差：{raw_str!r}",
-                category=BracketDelimiterWarning,
+                category=BracketWarning,
                 stacklevel=2,
             )
 

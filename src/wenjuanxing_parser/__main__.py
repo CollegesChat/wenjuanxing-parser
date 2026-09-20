@@ -8,6 +8,7 @@ from yaml12 import parse_yaml
 
 from wenjuanxing_parser import load_questions_from_yaml
 
+from .errors import UnsupportedFileError
 from .models import (
     AnyQuestion,
     QuestionnaireData,
@@ -32,7 +33,7 @@ def load_dataframe(data_path: Path) -> pl.DataFrame:
     elif suffix == ".xlsx":
         return pl.read_excel(data_path, engine="calamine")
     else:
-        raise ValueError(f"不支持的文件格式: {suffix}，仅支持 .csv 或 .xlsx")
+        raise UnsupportedFileError(f"不支持的文件格式: {suffix}，仅支持 .csv 或 .xlsx")
 
 
 def format_value(val) -> str:

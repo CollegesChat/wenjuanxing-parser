@@ -6,6 +6,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BeforeValidator, Field, model_validator
 from pydantic.json_schema import GenerateJsonSchema
 
+from ..errors import BlankConfigError
 from .base import CleanReprModel, QuestionType
 
 # 填空题空格配置类型：支持 dict 显式指定位置，或 list 混合（str 按顺序，dict 显式指定）
@@ -125,7 +126,7 @@ class FillBlankQuestion(Question):
                     while seq_pos in result:
                         seq_pos += 1
                     if seq_pos > blank_count:
-                        raise ValueError(
+                        raise BlankConfigError(
                             f"[题号 {num}] 校验失败: {field_name} 数量超过空格数 {blank_count}！"
                         )
                     result[seq_pos] = item
@@ -135,7 +136,7 @@ class FillBlankQuestion(Question):
                     continue
                 for key, val in item.items():
                     if not (1 <= key <= blank_count):
-                        raise ValueError(
+                        raise BlankConfigError(
                             f"[题号 {num}] 校验失败: {field_name} 的键 {key} "
                             f"超出范围 [1, {blank_count}]！"
                         )
@@ -158,7 +159,7 @@ class FillBlankQuestion(Question):
             else:
                 for key in self.regex:
                     if not (1 <= key <= self.blank_count):
-                        raise ValueError(
+                        raise BlankConfigError(
                             f"[题号 {self.num}] 校验失败: regex 的键 {key} "
                             f"超出范围 [1, {self.blank_count}]！"
                         )
@@ -174,7 +175,7 @@ class FillBlankQuestion(Question):
             else:
                 for key in self.default_blank_text:
                     if not (1 <= key <= self.blank_count):
-                        raise ValueError(
+                        raise BlankConfigError(
                             f"[题号 {self.num}] 校验失败: default_blank_text 的键 {key} "
                             f"超出范围 [1, {self.blank_count}]！"
                         )

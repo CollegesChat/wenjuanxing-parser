@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
+from ..errors import DateFormatError, ResponseIndexError
 from .base import IP, BasicData, PolarsValue
 from .questions import Questionnaire
 from .response import QuestionnaireResponse
@@ -35,7 +36,7 @@ def _build_basic_data(matrix_dict: dict, idx: int) -> BasicData:
                 except ValueError:
                     continue
             else:
-                raise ValueError(f"无法解析的时间格式: {raw_date}")
+                raise DateFormatError(f"无法解析的时间格式: {raw_date}")
     else:
         answer_date = raw_date
 
@@ -168,5 +169,5 @@ class QuestionnaireData:
         if idx < 0:
             idx += self._height
         if not 0 <= idx < self._height:
-            raise IndexError(idx)
+            raise ResponseIndexError(idx)
         return _parse_row(self._ctx, idx)

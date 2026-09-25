@@ -26,6 +26,15 @@ class CleanReprModel(BaseModel):
         ]
 
 
+def text_equal(text: str, other: object) -> bool | type(NotImplemented):
+    """按 text 判等：同族对象、裸字符串，以及任何带 text 属性的对象都可直接比。
+
+    用鸭子类型取代双向 isinstance，让 Option 与 SelectedOption 不必互相导入。
+    """
+    other_text = getattr(other, "text", other)
+    return text == other_text if isinstance(other_text, str) else NotImplemented
+
+
 # 基础特殊状态枚举
 class ResponseStatus(StrEnum):
     EMPTY = '(空)'

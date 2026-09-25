@@ -8,7 +8,7 @@ try:
 except ImportError:
     from typing_extensions import deprecated
 
-from .base import CleanReprModel, ResponseStatus
+from .base import CleanReprModel, ResponseStatus, text_equal
 
 
 class SelectedOption(CleanReprModel):
@@ -18,15 +18,7 @@ class SelectedOption(CleanReprModel):
     additional_text: str | None = None
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, SelectedOption):
-            return self.text == other.text
-        if isinstance(other, str):
-            return self.text == other
-        from .questions import Option
-
-        if isinstance(other, Option):
-            return self.text == other.text
-        return NotImplemented
+        return text_equal(self.text, other)
 
     def __hash__(self) -> int:
         return hash(self.text)

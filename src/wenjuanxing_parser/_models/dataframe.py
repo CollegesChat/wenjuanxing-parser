@@ -4,6 +4,7 @@ import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
+from ipaddress import ip_address
 from typing import Any, Self
 from zoneinfo import ZoneInfo
 
@@ -16,8 +17,6 @@ from .response import QuestionnaireResponse
 
 
 def _build_basic_data(matrix_dict: dict, idx: int) -> BasicData:
-    from ipaddress import ip_address
-
     raw_date = matrix_dict["meta_date"][idx]
     if isinstance(raw_date, datetime):
         answer_date = raw_date
@@ -62,43 +61,48 @@ def _build_basic_data(matrix_dict: dict, idx: int) -> BasicData:
     )
 
 
-def _parse_row(ctx: dict[str, Any], idx: int) -> QuestionnaireResponse:
-    matrix_dict = ctx["matrix_dict"]
-    q_resolved_groups = ctx["q_resolved_groups"]
-    questions_map = ctx["questions_map"]
-    meta_extractor = ctx.get("meta_extractor")
-    validate = ctx.get("validate", False)
+@dataclass(frozen=True)
+class _ParseContext:
+    """解析一行所需的一切；用属性取代字符串键，拼错键会在静态检查期就暴露。"""
 
-    if meta_extractor is not None:
-        df_ref = ctx["df_ref"]
-        meta_data = meta_extractor(df_ref, idx)
+    matrix_dict: dict[str, Any]
+    q_resolved_groups: dict[int, list[list[PolarsValue]]]
+    questions_map: Questionnaire
+    df_ref: pl.DataFrame
+    meta_extractor: Callable[[pl.DataFrame, Any], BasicData | None] | None
+    validate: bool
+
+
+def _parse_row(ctx: _ParseContext, idx: int) -> QuestionnaireResponse:
+    if ctx.meta_extractor is not None:
+        meta_data = ctx.meta_extractor(ctx.df_ref, idx)
     else:
-        meta_data = _build_basic_data(matrix_dict, idx)
+        meta_data = _build_basic_data(ctx.matrix_dict, idx)
 
     row_answers_dict: dict[int, list[PolarsValue] | PolarsValue] = {}
-    for q_num, col_dicts in q_resolved_groups.items():
+    for q_num, col_dicts in ctx.q_resolved_groups.items():
         if len(col_dicts) == 1:
             row_answers_dict[q_num] = col_dicts[0][idx]
         else:
             row_answers_dict[q_num] = [col_dict[idx] for col_dict in col_dicts]
 
-    if validate:
+    if ctx.validate:
         return QuestionnaireResponse.from_clean_dict(
             meta_data=meta_data,
             row_answers_dict=row_answers_dict,
-            questions_map=questions_map,
+            questions_map=ctx.questions_map,
         )
     return QuestionnaireResponse.parse_from_dict(
         meta_data=meta_data,
         row_answers_dict=row_answers_dict,
-        questions_map=questions_map,
+        questions_map=ctx.questions_map,
     )
 
 
 @dataclass(frozen=True)
 class QuestionnaireData:
     _height: int = field(repr=False)
-    _ctx: dict[str, Any] = field(repr=False, compare=False, hash=False)
+    _ctx: _ParseContext = field(repr=False, compare=False, hash=False)
 
     @classmethod
     def from_dataframe(
@@ -112,7 +116,7 @@ class QuestionnaireData:
         df_cleaned_rows = df.clone()
 
         def default_q_num_extractor(col_name: str) -> int | None:
-            match = re.match(r"^(\d+)[、\.]", col_name)
+            match = re.match(r"^(\d+)[、.]", col_name)
             return int(match.group(1)) if match else None
 
         get_q_num = q_num_extractor or default_q_num_extractor
@@ -145,14 +149,14 @@ class QuestionnaireData:
             for q_num, columns in q_col_groups.items()
         }
 
-        ctx = {
-            "matrix_dict": matrix_dict,
-            "q_resolved_groups": q_resolved_groups,
-            "questions_map": questions_map,
-            "meta_extractor": meta_extractor,
-            "df_ref": df_cleaned_rows,
-            "validate": validate,
-        }
+        ctx = _ParseContext(
+            matrix_dict=matrix_dict,
+            q_resolved_groups=q_resolved_groups,
+            questions_map=questions_map,
+            df_ref=df_cleaned_rows,
+            meta_extractor=meta_extractor,
+            validate=validate,
+        )
         return cls(_height=df_cleaned_rows.height, _ctx=ctx)
 
     def __repr__(self) -> str:

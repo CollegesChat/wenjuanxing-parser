@@ -41,6 +41,17 @@ def test_blank_config_overflow_raises_instead_of_hanging(items):
         )
 
 
+def test_blank_config_dict_branch_reports_field_name():
+    """dict 格式的越界报错必须用字段名，与 list 分支用的可读名区分开。
+
+    这两处报错文本历史上就不一致，锁住它以免重构时被无意合并。
+    """
+    with pytest.raises(BlankConfigError, match="default_blank_text 的键 3"):
+        FillBlankQuestion(
+            num=1, type="fill_blank", blank_count=2, default_blank_text={3: "x"}
+        )
+
+
 def test_invalid_questions_map():
     with pytest.raises(InvalidQuestionsMapError):
         QuestionnaireResponse.parse_from_dict(None, {}, ["不是映射"])

@@ -4,7 +4,18 @@ import polars as pl
 from yaml12 import parse_yaml
 
 from wenjuanxing_parser.loader import load_questions_from_yaml
-from wenjuanxing_parser.models import QuestionnaireData
+from wenjuanxing_parser.models import Option, QuestionnaireData, SelectedOption
+
+
+def test_text_based_equality():
+    """Option / SelectedOption / 裸字符串三方按 text 互判相等。"""
+    option = Option(text="男")
+    selected = SelectedOption(text="男")
+
+    assert option == selected == "男"
+    assert hash(option) == hash(selected) == hash("男")
+    assert option != "女"
+    assert (option == 42) is False
 
 
 def test_parser_flow(tmp_path: Path):

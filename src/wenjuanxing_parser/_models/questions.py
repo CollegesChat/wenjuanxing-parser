@@ -7,7 +7,7 @@ from pydantic import BeforeValidator, Field, model_validator
 from pydantic.json_schema import GenerateJsonSchema
 
 from ..errors import BlankConfigError
-from .base import CleanReprModel, QuestionType
+from .base import CleanReprModel, QuestionType, text_equal
 
 # 填空题空格配置类型：支持 dict 显式指定位置，或 list 混合（str 按顺序，dict 显式指定）
 type BlankConfig = dict[int, str] | list[str | dict[int, str]] | None
@@ -50,15 +50,7 @@ class Option(CleanReprModel):
     additional_text: AdditionalInfo | bool = Field(False, title="附加文本")
 
     def __eq__(self, other: object) -> bool:
-        if isinstance(other, Option):
-            return self.text == other.text
-        if isinstance(other, str):
-            return self.text == other
-        from .answers import SelectedOption
-
-        if isinstance(other, SelectedOption):
-            return self.text == other.text
-        return NotImplemented
+        return text_equal(self.text, other)
 
     def __hash__(self) -> int:
         return hash(self.text)
@@ -145,40 +137,41 @@ class FillBlankQuestion(Question):
                 seq_pos = max(seq_pos, max_key + 1)
         return result
 
+    def _normalize_blank_config(
+        self, value: BlankConfig, field_name: str, label: str
+    ) -> BlankConfig:
+        """把任意格式的空格配置统一成 dict[int, str]。
+
+        field_name 与 label 必须分开传：越界报错里用的是字段名，数量超限报错里
+        用的是人类可读名，两者历史上就不一致，合并会静默改变错误消息。
+        """
+        if isinstance(value, list):
+            return self._parse_mixed_list(value, self.blank_count, label, self.num)
+
+        for key in value:
+            if not (1 <= key <= self.blank_count):
+                raise BlankConfigError(
+                    f"[题号 {self.num}] 校验失败: {field_name} 的键 {key} "
+                    f"超出范围 [1, {self.blank_count}]！"
+                )
+        return value
+
     @model_validator(mode="after")
     def validate_fill_blank_constraints(self):
         if self.regex is not None:
-            if isinstance(self.regex, list):
-                object.__setattr__(
-                    self,
-                    "regex",
-                    self._parse_mixed_list(
-                        self.regex, self.blank_count, "regex", self.num
-                    ),
-                )
-            else:
-                for key in self.regex:
-                    if not (1 <= key <= self.blank_count):
-                        raise BlankConfigError(
-                            f"[题号 {self.num}] 校验失败: regex 的键 {key} "
-                            f"超出范围 [1, {self.blank_count}]！"
-                        )
+            object.__setattr__(
+                self,
+                "regex",
+                self._normalize_blank_config(self.regex, "regex", "regex"),
+            )
         if self.default_blank_text is not None:
-            if isinstance(self.default_blank_text, list):
-                object.__setattr__(
-                    self,
-                    "default_blank_text",
-                    self._parse_mixed_list(
-                        self.default_blank_text, self.blank_count, "默认文本", self.num
-                    ),
-                )
-            else:
-                for key in self.default_blank_text:
-                    if not (1 <= key <= self.blank_count):
-                        raise BlankConfigError(
-                            f"[题号 {self.num}] 校验失败: default_blank_text 的键 {key} "
-                            f"超出范围 [1, {self.blank_count}]！"
-                        )
+            object.__setattr__(
+                self,
+                "default_blank_text",
+                self._normalize_blank_config(
+                    self.default_blank_text, "default_blank_text", "默认文本"
+                ),
+            )
         return self
 
 

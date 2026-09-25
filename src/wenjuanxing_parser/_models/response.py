@@ -45,6 +45,16 @@ def _has_bracket_anomaly(text: str) -> bool:
     return _WELL_FORMED_TEXT.fullmatch(text) is None
 
 
+def _is_nan(value: PolarsValue) -> bool:
+    """Polars 导出后缺失值有两种形态：None，或字符串 'nan'（大小写不定）。"""
+    return value is None or str(value).lower() == "nan"
+
+
+def _is_blank(value: object) -> bool:
+    """填空的单个空格是否等于没填：空串，或整格的 (空) / (跳过) 状态。"""
+    return value == "" or value in SKIPPED_OR_EMPTY
+
+
 @dataclass(frozen=True)
 class QuestionnaireResponse:
     answers: dict[int, UserAnswer]
@@ -67,7 +77,7 @@ class QuestionnaireResponse:
 
             # 1. 拦截完全缺失 (Polars 字典导出后空值为 None)
             if raw_value is None or (
-                not isinstance(raw_value, list) and str(raw_value).lower() == "nan"
+                not isinstance(raw_value, list) and _is_nan(raw_value)
             ):
                 parsed_value = None
             else:
@@ -76,7 +86,7 @@ class QuestionnaireResponse:
                     check_strs = [
                         str(v).strip()
                         for v in raw_value
-                        if v is not None and str(v).lower() != "nan"
+                        if not _is_nan(v)
                     ]
                 else:
                     check_strs = [str(raw_value).strip()]
@@ -90,13 +100,13 @@ class QuestionnaireResponse:
                     if isinstance(raw_value, list):
                         parts = []
                         for v in raw_value:
-                            if v is None or str(v).lower() == "nan":
+                            if _is_nan(v):
                                 parts.append("")
                             else:
                                 s = str(v).strip()
                                 if s in SKIPPED_OR_EMPTY:
                                     parts.append(ResponseStatus(s))
-                                elif s.lower() == "nan":
+                                elif _is_nan(s):
                                     parts.append("")
                                 else:
                                     parts.append(s)
@@ -123,7 +133,7 @@ class QuestionnaireResponse:
 
                 else:
                     raw_str = str(raw_value).strip()
-                    if not raw_str or raw_str.lower() == "nan":
+                    if not raw_str or _is_nan(raw_str):
                         parsed_value = None
                     elif question.type == "radio":
                         parsed_value = cls._parse_single_option(raw_str)
@@ -177,14 +187,14 @@ class QuestionnaireResponse:
                 if parsed_value is None:
                     valid = False
                     error_msg = "该题为必填项，但受访者未填写。"
-                elif parsed_value in SKIPPED_OR_EMPTY:
+                elif _is_blank(parsed_value):
                     valid = False
                     error_msg = f"该题为必填项，但当前处于特殊状态: {parsed_value}。"
                 elif isinstance(parsed_value, list) and len(parsed_value) == 0:
                     valid = False
                     error_msg = "该多选题为必选项，但未勾选任何选项。"
                 elif isinstance(parsed_value, list):
-                    if any(v == "" or v in SKIPPED_OR_EMPTY for v in parsed_value):
+                    if any(_is_blank(v) for v in parsed_value):
                         valid = False
                         error_msg = "该填空题为必填项，但存在未完成填写的空格。"
 
@@ -198,7 +208,7 @@ class QuestionnaireResponse:
                 for i, part in enumerate(parsed_value):
                     if (i + 1) in regex_rules:
                         rule = regex_rules[i + 1]
-                        if part in SKIPPED_OR_EMPTY or part == "":
+                        if _is_blank(part):
                             if question.required:
                                 valid = False
                                 error_msg = f"第 {i + 1} 个空格未填写。"

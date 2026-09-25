@@ -19,9 +19,7 @@ from .models import (
 
 def load_questions(config_path: Path) -> dict[int, AnyQuestion]:
     """读取 YAML 并利用 Pydantic 自动反序列化"""
-    with open(config_path, "r", encoding="utf-8") as f:
-        raw = parse_yaml(f.read())
-
+    raw = parse_yaml(config_path.read_text(encoding="utf-8"))
     return load_questions_from_yaml(raw)  # type: ignore
 
 
@@ -134,7 +132,6 @@ def main():
     except Exception as e:
         print(f"💥 运行时发生错误: {e}", file=sys.stderr)
         raise
-        sys.exit(1)
 
 
 if __name__ == "__main__":

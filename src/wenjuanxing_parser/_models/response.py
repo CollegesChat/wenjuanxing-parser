@@ -101,15 +101,10 @@ class QuestionnaireResponse:
                                 else:
                                     parts.append(s)
                     else:
-                        raw_str = str(raw_value).strip()
-                        parts = []
-                        for p in cls._split_outside_brackets(raw_str):
-                            if p == ResponseStatus.EMPTY:
-                                parts.append(ResponseStatus.EMPTY)
-                            elif p == ResponseStatus.SKIPPED:
-                                parts.append(ResponseStatus.SKIPPED)
-                            else:
-                                parts.append(p)
+                        parts = [
+                            ResponseStatus(p) if p in SKIPPED_OR_EMPTY else p
+                            for p in cls._split_outside_brackets(str(raw_value).strip())
+                        ]
 
                     # 问卷星导出时通常已自动填入默认文本，此处兜底处理未填写的空格
                     default_texts = getattr(question, "default_blank_text", None)
@@ -182,17 +177,14 @@ class QuestionnaireResponse:
                 if parsed_value is None:
                     valid = False
                     error_msg = "该题为必填项，但受访者未填写。"
-                elif parsed_value in (ResponseStatus.EMPTY, ResponseStatus.SKIPPED):
+                elif parsed_value in SKIPPED_OR_EMPTY:
                     valid = False
                     error_msg = f"该题为必填项，但当前处于特殊状态: {parsed_value}。"
                 elif isinstance(parsed_value, list) and len(parsed_value) == 0:
                     valid = False
                     error_msg = "该多选题为必选项，但未勾选任何选项。"
                 elif isinstance(parsed_value, list):
-                    if any(
-                        v == "" or v in (ResponseStatus.EMPTY, ResponseStatus.SKIPPED)
-                        for v in parsed_value
-                    ):
+                    if any(v == "" or v in SKIPPED_OR_EMPTY for v in parsed_value):
                         valid = False
                         error_msg = "该填空题为必填项，但存在未完成填写的空格。"
 
@@ -206,10 +198,7 @@ class QuestionnaireResponse:
                 for i, part in enumerate(parsed_value):
                     if (i + 1) in regex_rules:
                         rule = regex_rules[i + 1]
-                        if (
-                            part in (ResponseStatus.EMPTY, ResponseStatus.SKIPPED)
-                            or part == ""
-                        ):
+                        if part in SKIPPED_OR_EMPTY or part == "":
                             if question.required:
                                 valid = False
                                 error_msg = f"第 {i + 1} 个空格未填写。"

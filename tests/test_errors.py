@@ -54,7 +54,8 @@ def test_blank_config_dict_branch_reports_field_name():
 
 def test_invalid_questions_map():
     with pytest.raises(InvalidQuestionsMapError):
-        QuestionnaireResponse.parse_from_dict(None, {}, ["不是映射"])
+        # 故意传入非映射，验证 InvalidQuestionsMapError 能穿透
+        QuestionnaireResponse.parse_from_dict(None, {}, ["不是映射"])  # type: ignore
 
 
 def test_delimiter_inside_brackets_warns():

@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 from enum import StrEnum
 from ipaddress import IPv4Address, IPv6Address, ip_address
+from types import NotImplementedType
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict
@@ -26,7 +27,7 @@ class CleanReprModel(BaseModel):
         ]
 
 
-def text_equal(text: str, other: object) -> bool | type(NotImplemented):
+def text_equal(text: str, other: object) -> bool | NotImplementedType:
     """按 text 判等：同族对象、裸字符串，以及任何带 text 属性的对象都可直接比。
 
     用鸭子类型取代双向 isinstance，让 Option 与 SelectedOption 不必互相导入。

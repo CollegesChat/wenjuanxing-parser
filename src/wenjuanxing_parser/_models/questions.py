@@ -10,7 +10,9 @@ from ..errors import BlankConfigError
 from .base import CleanReprModel, QuestionType, text_equal
 
 # 填空题空格配置类型：支持 dict 显式指定位置，或 list 混合（str 按顺序，dict 显式指定）
-type BlankConfig = dict[int, str] | list[str | dict[int, str]] | None
+# BlankConfigValue 是不含 None 的那部分，供调用方在判空后使用，避免空值一路带进遍历
+type BlankConfigValue = dict[int, str] | list[str | dict[int, str]]
+type BlankConfig = BlankConfigValue | None
 
 
 class CustomSchemaGenerator(GenerateJsonSchema):
@@ -138,8 +140,8 @@ class FillBlankQuestion(Question):
         return result
 
     def _normalize_blank_config(
-        self, value: BlankConfig, field_name: str, label: str
-    ) -> BlankConfig:
+        self, value: BlankConfigValue, field_name: str, label: str
+    ) -> BlankConfigValue:
         """把任意格式的空格配置统一成 dict[int, str]。
 
         field_name 与 label 必须分开传：越界报错里用的是字段名，数量超限报错里

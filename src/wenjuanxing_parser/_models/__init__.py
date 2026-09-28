@@ -33,6 +33,7 @@ from .response import QuestionnaireResponse
 
 __all__ = [
     "IP",
+    "SKIPPED_OR_EMPTY",
     "AnswerValue",
     "AnyQuestion",
     "BasicData",
@@ -55,5 +56,4 @@ __all__ = [
     "TextAreaAnswer",
     "TextAreaQuestion",
     "UserAnswer",
-    "SKIPPED_OR_EMPTY"
 ]

@@ -1,4 +1,5 @@
 """问卷响应处理"""
+
 import re
 import warnings
 
@@ -83,11 +84,7 @@ class QuestionnaireResponse:
             else:
                 # 2. 前置判定整题是否属于 (空) 或 (跳过) 状态
                 if isinstance(raw_value, list):
-                    check_strs = [
-                        str(v).strip()
-                        for v in raw_value
-                        if not _is_nan(v)
-                    ]
+                    check_strs = [str(v).strip() for v in raw_value if not _is_nan(v)]
                 else:
                     check_strs = [str(raw_value).strip()]
 
@@ -262,9 +259,7 @@ class QuestionnaireResponse:
             )
 
         # 2. 纯正则提取非分隔符片段，去除首尾空白并滤除空串
-        return [
-            p.strip() for p in re.findall(rf"[^{DELIMITER}]+", text) if p.strip()
-        ]
+        return [p.strip() for p in re.findall(rf"[^{DELIMITER}]+", text) if p.strip()]
 
     @staticmethod
     def _parse_single_option(raw_str: str) -> SelectedOption:

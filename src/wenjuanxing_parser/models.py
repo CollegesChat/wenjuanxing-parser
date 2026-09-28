@@ -57,5 +57,5 @@ __all__ = [
     "SelectedOption",
     "TextAreaAnswer",
     "TextAreaQuestion",
-    "UserAnswer"
+    "UserAnswer",
 ]

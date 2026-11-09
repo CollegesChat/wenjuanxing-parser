@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from types import NotImplementedType
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict
 from pydantic.dataclasses import dataclass
@@ -48,8 +48,14 @@ class ResponseStatus(StrEnum):
 
 SKIPPED_OR_EMPTY = (ResponseStatus.EMPTY, ResponseStatus.SKIPPED)
 
-# 基础类型别名
-type QuestionType = Literal["radio", "checkbox", "fill_blank", "text_area"]
+
+class QuestionType(StrEnum):
+    RADIO = "radio"
+    CHECKBOX = "checkbox"
+    FILL_BLANK = "fill_blank"
+    TEXT_AREA = "text_area"
+
+
 type PolarsValue = str | int | float | datetime | None
 type IPAddress = Annotated[
     IPv4Address | IPv6Address | str,

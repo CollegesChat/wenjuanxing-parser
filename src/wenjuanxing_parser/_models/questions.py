@@ -81,6 +81,11 @@ class CheckboxQuestion(Question):
 class TextAreaQuestion(Question):
     type: Literal["text_area"] = "text_area"
     length_limit: int | None = Field(None, title="字数限制")
+    default_blank_text: str | None = Field(
+        None,
+        title="默认填充文本",
+        description="用户未填写时填入的默认文本（草稿）。",
+    )
 
 
 class FillBlankQuestion(Question):

@@ -17,11 +17,11 @@ type BlankConfig = BlankConfigValue | None
 
 class CustomSchemaGenerator(GenerateJsonSchema):
     """
-    黑魔法生成器：在导出 Schema 时，偷偷帮编辑器把 discriminator 补上。
-    这样 yaml-language-server 就能瞬间开眼，100% 识别 extra="forbid" 并精准定位错别字画红线！
+    导出 JSON Schema 时为 anyOf 节点补上 discriminator，让 yaml-language-server
+    能识别 extra="forbid" 并定位未知字段。
     """
 
-    # 🌟 修复此处：将第二个参数修改为 mode，完美对齐 Pydantic 官方基类签名
+    # 对齐 Pydantic GenerateJsonSchema.generate 的 (schema, mode) 签名
     def generate(self, schema: Any, mode: Any = "validation") -> Any:
         json_schema = super().generate(schema, mode)
 
@@ -39,7 +39,6 @@ class CustomSchemaGenerator(GenerateJsonSchema):
 
 
 class AdditionalInfo(CleanReprModel):
-    # 🌟 删除了 model_config，自动完美继承父类的 extra="forbid" 和 frozen=True
     prompt: str | None = Field(None, title="提示文本")
     required: bool = Field(False, title="是否必填")
 
@@ -47,7 +46,6 @@ class AdditionalInfo(CleanReprModel):
 class Option(CleanReprModel):
     """选项的定义"""
 
-    # 🌟 删除了 model_config，确保选项深处的未知字段也能被 forbid 锁死
     text: str = Field(..., title="选项文本")  # 选项文本，如 "男"、"其他"
     additional_text: AdditionalInfo | bool = Field(False, title="附加文本")
 

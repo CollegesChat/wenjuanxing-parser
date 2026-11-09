@@ -80,7 +80,7 @@ def main():
     data_path = Path(args.data)
     config_path = Path(args.config)
 
-    # ✨ 智慧容错：如果预设的 data.csv 不存在，但旁边躺著一个 data.xlsx，自动切换
+    # data.csv 缺省不存在时，旁边有 data.xlsx 则自动改用
     if (
         not data_path.exists()
         and args.data == "data.csv"

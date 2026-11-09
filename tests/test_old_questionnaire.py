@@ -48,9 +48,9 @@ class LegacyBasicData(BasicData):
 
 def test_old():
     def meta_extractor(df: pl.DataFrame, idx: Any) -> BasicData | None:
-        # 🌟 完美适配 Polars 的无索引设计：通过 .row(..., named=True) 获取当前行字典，大幅提升解析效率
+        # Polars 无索引：用 .row(..., named=True) 取当前行字典
         row = df.row(idx, named=True)
-        return LegacyBasicData(  # 4. 移除了括号末尾的硬编码逗号，确保返回纯粹的实体对象，通过 ty check 校验
+        return LegacyBasicData(  # 移除括号末尾的硬编码逗号，返回纯实体对象
             answer_date=datetime.fromisoformat(str(row["开始时间"])),
             num=int(row["答题序号"]),
             **MISSING_BASIC_DATA_KWARGS,

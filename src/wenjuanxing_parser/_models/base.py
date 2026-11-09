@@ -39,7 +39,7 @@ def text_equal(text: str, other: object) -> bool | NotImplementedType:
 # 基础特殊状态枚举
 class ResponseStatus(StrEnum):
     EMPTY = "(空)"
-    """用户主动跳题"""
+    """用户对题目/本填空留空"""
     SKIPPED = "(跳过)"
     """程序规则设置的跳题"""
     NONE = "无"

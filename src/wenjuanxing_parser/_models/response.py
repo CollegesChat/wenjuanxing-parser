@@ -232,7 +232,7 @@ class QuestionnaireResponse:
         return self.__class__(metadata=self.metadata, answers=validated_answers)
 
     @classmethod
-    def from_clean_dict(
+    def from_raw_row(
         cls,
         meta_data: BasicData | None,
         row_answers_dict: dict[int, list[PolarsValue] | PolarsValue],

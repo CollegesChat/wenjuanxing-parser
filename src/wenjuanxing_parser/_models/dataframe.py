@@ -87,7 +87,7 @@ def _parse_row(ctx: _ParseContext, idx: int) -> QuestionnaireResponse:
             row_answers_dict[q_num] = [col_dict[idx] for col_dict in col_dicts]
 
     if ctx.validate:
-        return QuestionnaireResponse.from_clean_dict(
+        return QuestionnaireResponse.from_raw_row(
             meta_data=meta_data,
             row_answers_dict=row_answers_dict,
             questions_map=ctx.questions_map,

@@ -3,7 +3,7 @@ from pydantic import TypeAdapter
 from .models import AnyQuestion, Questionnaire
 
 
-def load_questions_from_yaml(raw_data: list | dict) -> Questionnaire:
+def parse_questions(raw_data: list | dict) -> Questionnaire:
     """直接复用 models.py 中的 AnyQuestion，实现单点维护题型推导逻辑"""
     # 兼容直接传入字典（含 questions 键）或直接传入列表的格式
     raw_list = (

@@ -8,7 +8,7 @@ import polars as pl
 from niquests import get
 from yaml12 import parse_yaml
 
-from wenjuanxing_parser.loader import load_questions_from_yaml
+from wenjuanxing_parser.loader import parse_questions
 from wenjuanxing_parser.models import (
     MISSING_BASIC_DATA_KWARGS,
     BasicData,
@@ -61,7 +61,7 @@ def test_old():
         match = re.match(r"^[qQ](\d+)", col_name)
         return int(match.group(1)) if match else None
 
-    questionnaire: Questionnaire = load_questions_from_yaml(yaml)
+    questionnaire: Questionnaire = parse_questions(yaml)
     logger.info(
         QuestionnaireData.from_dataframe(
             df, questionnaire, meta_extractor, qnum_extractor

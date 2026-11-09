@@ -49,9 +49,9 @@ pip install wenjuanxing-parser # 仅安装数据处理模块，数据用你自�
 ```python
 import polars as pl
 from yaml12 import parse_yaml
-from wenjuanxing_parser import QuestionnaireData, load_questions_from_yaml
+from wenjuanxing_parser import QuestionnaireData, parse_questions
 
-questions_map = load_questions_from_yaml(parse_yaml(yaml_text))
+questions_map = parse_questions(parse_yaml(yaml_text))
 df = pl.read_csv("data.csv")
 
 # 懒加载迭代：按需逐行解析，任意时刻仅一条 response 在内存

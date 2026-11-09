@@ -1,4 +1,4 @@
-from .loader import load_questions_from_yaml
+from .loader import parse_questions
 from .models import QuestionnaireData, QuestionnaireResponse
 
-__all__ = ["QuestionnaireData", "QuestionnaireResponse", "load_questions_from_yaml"]
+__all__ = ["QuestionnaireData", "QuestionnaireResponse", "parse_questions"]

@@ -8,7 +8,7 @@ import polars as pl
 import pytest
 from yaml12 import parse_yaml
 
-from wenjuanxing_parser.loader import load_questions_from_yaml
+from wenjuanxing_parser.loader import parse_questions
 from wenjuanxing_parser.models import QuestionnaireData
 
 YAML_CONTENT = """
@@ -68,7 +68,7 @@ ROW_COUNT = 200_000
 @pytest.fixture(scope="module")
 def benchmark_data():
     yaml_obj = parse_yaml(YAML_CONTENT)
-    questions_map = load_questions_from_yaml(cast(list | dict, yaml_obj))
+    questions_map = parse_questions(cast(list | dict, yaml_obj))
 
     genders = ["男", "女", "其他〖非二元性别〗"]
     grades = ["大一", "大二", "大三", "大四", "研究生〖硕士〗", "研究生〖博士〗"]

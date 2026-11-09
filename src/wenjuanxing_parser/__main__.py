@@ -6,7 +6,7 @@ from pathlib import Path
 import polars as pl
 from yaml12 import parse_yaml
 
-from wenjuanxing_parser import load_questions_from_yaml
+from wenjuanxing_parser import parse_questions
 
 from .errors import UnsupportedFileError
 from .models import (
@@ -17,10 +17,10 @@ from .models import (
 )
 
 
-def load_questions(config_path: Path) -> dict[int, AnyQuestion]:
+def load_questions_from_yaml(config_path: Path) -> dict[int, AnyQuestion]:
     """读取 YAML 并利用 Pydantic 自动反序列化"""
     raw = parse_yaml(config_path.read_text(encoding="utf-8"))
-    return load_questions_from_yaml(raw)  # type: ignore
+    return parse_questions(raw)  # type: ignore
 
 
 def load_dataframe(data_path: Path) -> pl.DataFrame:
@@ -97,7 +97,7 @@ def main():
 
     try:
         # 1. 载入题库与原始 DataFrame
-        questions_map = load_questions(config_path)
+        questions_map = load_questions_from_yaml(config_path)
         df = load_dataframe(data_path)
 
         # 2. 灌入懒加载解析管线，单次遍历按题号聚合
